@@ -1,75 +1,114 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
+import React, { useState, useEffect } from 'react';
+import {
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  StyleSheet,
+  View
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { TripCard } from '@/components/trips/TripCard';
+import { Loading } from '@/components/ui/Loading';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { ThemedView } from '@/components/ThemedView';
+import { useTrips } from '@/hooks/useTrips';
+import { Trip, TripSearchParams } from '@/lib/api/trips'; // ⚠️ Importar tipos adaptados
+import { useThemeColor } from '@/hooks/useThemeColor';
 
-export default function HomeScreen() {
+export default function TripsScreen() {
+  const { trips, isLoading, searchTrips } = useTrips();
+  const [currentParams, setCurrentParams] = useState<TripSearchParams>({});
+  const tintColor = useThemeColor({}, 'tint');
+
+  useEffect(() => {
+    // Cargar viajes al iniciar la pantalla
+    searchTrips();
+  }, []);
+
+  const handleTripPress = (trip: Trip) => {
+    router.push({
+      pathname: '/trip/[id]',
+      params: { id: trip.id.toString() } // ⚠️ Convertir a string
+    });
+  };
+
+  const handleBookPress = (trip: Trip) => {
+    router.push({
+      pathname: '/purchase/[tripId]',
+      params: { tripId: trip.id.toString() } // ⚠️ Convertir a string
+    });
+  };
+
+  const handleRefresh = () => {
+    searchTrips(currentParams);
+  };
+
+  const renderTrip = ({ item }: { item: Trip }) => (
+    <TripCard
+      trip={item}
+      onPress={() => handleTripPress(item)}
+      onBookPress={() => handleBookPress(item)}
+    />
+  );
+
+  if (isLoading && trips.length === 0) {
+    return <Loading text="Cargando viajes..." />;
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
+    <SafeAreaView style={styles.container}>
+      <ThemedView style={styles.header}>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => {/* TODO: Implementar modal de filtros */}}
+        >
+          <Ionicons name="filter" size={24} color={tintColor} />
+        </TouchableOpacity>
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+
+      <FlatList
+        data={trips}
+        renderItem={renderTrip}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={styles.listContainer}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
+        }
+        ListEmptyComponent={
+          !isLoading ? (
+            <EmptyState
+              icon="bus-outline"
+              title="No hay viajes disponibles"
+              description="No se encontraron viajes. Intenta actualizar o cambiar los filtros."
+              actionTitle="Actualizar"
+              onAction={handleRefresh}
+            />
+          ) : null
+        }
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+  },
+  header: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e1e5e9',
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  filterButton: {
+    padding: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  listContainer: {
+    paddingVertical: 8,
   },
 });

@@ -23,17 +23,26 @@ export const TripCard: React.FC<TripCardProps> = ({
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');
 
+  // ✅ Verificaciones de seguridad para evitar errores
+  if (!trip) {
+    return null;
+  }
+
   return (
     <TouchableOpacity onPress={onPress}>
       <Card style={styles.container}>
         <View style={styles.header}>
           <View style={styles.route}>
-            <ThemedText style={styles.locationText}>{trip.origen.nombre}</ThemedText>
+            <ThemedText style={styles.locationText}>
+              {trip.origen?.nombre || 'Origen desconocido'}
+            </ThemedText>
             <Ionicons name="arrow-forward" size={20} color={iconColor} />
-            <ThemedText style={styles.locationText}>{trip.destino.nombre}</ThemedText>
+            <ThemedText style={styles.locationText}>
+              {trip.destino?.nombre || 'Destino desconocido'}
+            </ThemedText>
           </View>
           <ThemedText style={[styles.priceText, { color: tintColor }]}>
-            {formatters.currency(trip.precio)}
+            {trip.precio ? formatters.currency(trip.precio) : 'Precio no disponible'}
           </ThemedText>
         </View>
 
@@ -41,21 +50,27 @@ export const TripCard: React.FC<TripCardProps> = ({
           <View style={styles.detailRow}>
             <Ionicons name="calendar-outline" size={16} color={iconColor} />
             <ThemedText style={styles.detailText}>
-              {formatters.date(trip.fecha, 'short')}
+              {trip.fecha ? formatters.date(trip.fecha, 'short') : 'Fecha no disponible'}
             </ThemedText>
           </View>
 
           <View style={styles.detailRow}>
             <Ionicons name="time-outline" size={16} color={iconColor} />
             <ThemedText style={styles.detailText}>
-              {formatters.time(trip.horaSalida)} - {formatters.time(trip.horaLlegada)}
+              {trip.horaSalida && trip.horaLlegada
+                ? `${formatters.time(trip.horaSalida)} - ${formatters.time(trip.horaLlegada)}`
+                : 'Horario no disponible'
+              }
             </ThemedText>
           </View>
 
           <View style={styles.detailRow}>
             <Ionicons name="bus-outline" size={16} color={iconColor} />
             <ThemedText style={styles.detailText}>
-              {trip.omnibus.modelo} - {trip.omnibus.matricula}
+              {trip.omnibus?.modelo && trip.omnibus?.matricula
+                ? `${trip.omnibus.modelo} - ${trip.omnibus.matricula}`
+                : 'Información del bus no disponible'
+              }
             </ThemedText>
           </View>
 
@@ -63,9 +78,9 @@ export const TripCard: React.FC<TripCardProps> = ({
             <Ionicons name="person-outline" size={16} color={iconColor} />
             <ThemedText style={[
               styles.detailText,
-              trip.asientosDisponibles < 5 && styles.lowSeats
+              (trip.asientosDisponibles || 0) < 5 && styles.lowSeats
             ]}>
-              {trip.asientosDisponibles} asientos disponibles
+              {trip.asientosDisponibles ?? 0} asientos disponibles
             </ThemedText>
           </View>
         </View>
@@ -73,7 +88,7 @@ export const TripCard: React.FC<TripCardProps> = ({
         <View style={styles.footer}>
           {trip.ventasCerradas ? (
             <ThemedText style={styles.closedText}>Ventas cerradas</ThemedText>
-          ) : trip.asientosDisponibles === 0 ? (
+          ) : (trip.asientosDisponibles || 0) === 0 ? (
             <ThemedText style={styles.soldOutText}>Agotado</ThemedText>
           ) : (
             <Button

@@ -22,6 +22,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // ✅ LÍNEA CORREGIDA
   const isAuthenticated = !!user;
 
   useEffect(() => {
@@ -53,7 +54,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Guardar token
       await AsyncStorage.setItem('auth_token', response.token);
 
-      // Crear objeto User desde la respuesta
+      // Crear objeto User desde la respuesta del backend
       const userData: User = {
         id: response.id,
         email: response.email,
@@ -93,15 +94,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // ✅ LOGOUT CORREGIDO
   const logout = async () => {
     try {
-      await authService.logout();
+      // Primero limpiar el estado local
       setUser(null);
+
+      // Luego limpiar el storage
+      await AsyncStorage.multiRemove(['auth_token', 'user_data']);
+
+      // Llamar al servicio de logout si existe
+      await authService.logout();
+
+      console.log('Logout completado exitosamente');
     } catch (error) {
       console.error('Error during logout:', error);
-      // Limpiar localmente aunque falle el logout en server
-      await AsyncStorage.multiRemove(['auth_token', 'user_data']);
+      // Asegurar limpieza local aunque falle el servicio
       setUser(null);
+      await AsyncStorage.multiRemove(['auth_token', 'user_data']);
     }
   };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   TextInput,
@@ -30,6 +30,8 @@ export function Input({
   onRightIconPress,
   secureTextEntry,
   style,
+  onFocus,
+  onBlur,
   ...props
 }: InputProps) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -39,12 +41,36 @@ export function Input({
   const tintColor = useThemeColor({}, 'tint');
   const iconColor = useThemeColor({}, 'icon');
 
-  const handlePasswordToggle = () => {
-    setIsPasswordVisible(!isPasswordVisible);
-  };
+  // ✅ SOLUCIÓN: Usar useCallback para evitar re-creación de funciones
+  const handleFocus = useCallback((e: any) => {
+    setIsFocused(true);
+    onFocus?.(e);
+  }, [onFocus]);
+
+  const handleBlur = useCallback((e: any) => {
+    setIsFocused(false);
+    onBlur?.(e);
+  }, [onBlur]);
+
+  const handlePasswordToggle = useCallback(() => {
+    setIsPasswordVisible(prev => !prev);
+  }, []);
 
   const isPassword = secureTextEntry;
   const showPassword = isPassword && !isPasswordVisible;
+
+  // ✅ SOLUCIÓN: Memoizar estilos para evitar recreación en cada render
+  const inputContainerStyle = React.useMemo(() => [
+    styles.inputContainer,
+    isFocused && { borderColor: tintColor, shadowColor: tintColor },
+    error && { borderColor: '#dc3545' },
+  ], [isFocused, tintColor, error]);
+
+  const inputStyle = React.useMemo(() => [
+    styles.input,
+    { color: textColor },
+    style
+  ], [textColor, style]);
 
   return (
     <View style={styles.container}>
@@ -55,11 +81,7 @@ export function Input({
         </ThemedText>
       )}
 
-      <ThemedView style={[
-        styles.inputContainer,
-        isFocused && { borderColor: tintColor, shadowColor: tintColor },
-        error && { borderColor: '#dc3545' },
-      ]}>
+      <ThemedView style={inputContainerStyle}>
         {leftIcon && (
           <Ionicons
             name={leftIcon}
@@ -70,10 +92,10 @@ export function Input({
         )}
 
         <TextInput
-          style={[styles.input, { color: textColor }, style]}
+          style={inputStyle}
           secureTextEntry={showPassword}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           placeholderTextColor={iconColor}
           {...props}
         />

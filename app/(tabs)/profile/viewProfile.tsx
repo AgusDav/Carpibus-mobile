@@ -81,7 +81,7 @@ export default function ProfileScreen() {
             <Ionicons name="person" size={40} color={tintColor} />
           </ThemedView>
           <ThemedText type="title" style={styles.userName}>
-            {user?.firstName} {user?.lastName}
+            {user?.nombre} {user?.apellido}
           </ThemedText>
           <ThemedText style={styles.userEmail}>{user?.email}</ThemedText>
         </ThemedView>
@@ -99,14 +99,14 @@ export default function ProfileScreen() {
           <ProfileItem
             icon="card-outline"
             title="Documento"
-            subtitle={user?.documentNumber}
+            subtitle={user?.ci}
             showArrow={false}
           />
 
           <ProfileItem
             icon="call-outline"
             title="Teléfono"
-            subtitle={user?.phone || 'No configurado'}
+            subtitle={user?.telefono || 'No configurado'}
             showArrow={false}
           />
 

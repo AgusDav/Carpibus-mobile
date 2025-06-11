@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Alert, ScrollView } from 'react-native';
-import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
-import { ThemedText } from '@/components/ThemedText';
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  StyleSheet,
+  Alert,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity
+} from 'react-native';
 import { RegisterRequest } from '@/lib/api/auth';
-import { validation } from '@/lib/utils/validation';
 
 interface RegisterFormProps {
   onSubmit: (userData: RegisterRequest) => Promise<void>;
@@ -23,52 +27,54 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     email: '',
     telefono: '',
     ci: '',
-    contrasenia: '', // ⚠️ Cambio: usar "contrasenia"
+    contrasenia: '',
     confirmPassword: '',
-    fechaNac: '', // ⚠️ Cambio: usar "fechaNac" formato "YYYY-MM-DD"
+    fechaNac: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const updateField = (field: string, value: string) => {
+  // ✅ SOLUCIÓN: Handlers optimizados con useCallback
+  const updateField = useCallback((field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
-  };
+  }, [errors]);
 
-  const validateForm = () => {
+  const validateForm = useCallback(() => {
     const newErrors: Record<string, string> = {};
 
-    if (!validation.required(formData.nombre)) {
+    if (!formData.nombre.trim()) {
       newErrors.nombre = 'El nombre es requerido';
     }
 
-    if (!validation.required(formData.apellido)) {
+    if (!formData.apellido.trim()) {
       newErrors.apellido = 'El apellido es requerido';
     }
 
-    if (!validation.required(formData.email)) {
+    if (!formData.email.trim()) {
       newErrors.email = 'El email es requerido';
-    } else if (!validation.email(formData.email)) {
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'El email no es válido';
     }
 
-    if (!validation.required(formData.ci)) {
+    if (!formData.ci.trim()) {
       newErrors.ci = 'La cédula es requerida';
     } else if (!/^\d{7,8}$/.test(formData.ci)) {
       newErrors.ci = 'La cédula debe tener 7 u 8 dígitos';
     }
 
-    if (!validation.required(formData.fechaNac)) {
+    if (!formData.fechaNac.trim()) {
       newErrors.fechaNac = 'La fecha de nacimiento es requerida';
     } else if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.fechaNac)) {
       newErrors.fechaNac = 'Formato de fecha inválido (YYYY-MM-DD)';
     }
 
-    const passwordValidation = validation.password(formData.contrasenia);
-    if (!passwordValidation.isValid) {
-      newErrors.contrasenia = passwordValidation.message || 'Contraseña inválida';
+    if (!formData.contrasenia.trim()) {
+      newErrors.contrasenia = 'La contraseña es requerida';
+    } else if (formData.contrasenia.length < 8) {
+      newErrors.contrasenia = 'La contraseña debe tener al menos 8 caracteres';
     }
 
     if (formData.contrasenia !== formData.confirmPassword) {
@@ -81,9 +87,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [formData]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!validateForm()) return;
 
     try {
@@ -92,9 +98,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         apellido: formData.apellido.trim(),
         email: formData.email.trim().toLowerCase(),
         telefono: formData.telefono ? parseInt(formData.telefono) : undefined,
-        ci: parseInt(formData.ci), // ⚠️ Backend espera number
-        contrasenia: formData.contrasenia, // ⚠️ Usar "contrasenia"
-        fechaNac: formData.fechaNac, // ⚠️ Formato "YYYY-MM-DD"
+        ci: parseInt(formData.ci),
+        contrasenia: formData.contrasenia,
+        fechaNac: formData.fechaNac,
       };
 
       await onSubmit(registerData);
@@ -104,117 +110,137 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         error.message || 'No se pudo crear la cuenta'
       );
     }
-  };
+  }, [formData, onSubmit, validateForm]);
+
+  console.log('RegisterForm render'); // Para debug
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <ThemedText type="title" style={styles.title}>Crear Cuenta</ThemedText>
-      <ThemedText style={styles.subtitle}>
+      <Text style={styles.title}>Crear Cuenta</Text>
+      <Text style={styles.subtitle}>
         Completa tus datos para registrarte
-      </ThemedText>
+      </Text>
 
-      <Input
-        label="Nombre"
-        placeholder="Ingresa tu nombre"
-        value={formData.nombre}
-        onChangeText={(value) => updateField('nombre', value)}
-        autoCapitalize="words"
-        leftIcon="person-outline"
-        error={errors.nombre}
-        required
-      />
+      {/* Nombre */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Nombre *</Text>
+        <TextInput
+          style={[styles.input, errors.nombre && styles.inputError]}
+          value={formData.nombre}
+          onChangeText={(value) => updateField('nombre', value)}
+          placeholder="Ingresa tu nombre"
+          autoCapitalize="words"
+        />
+        {errors.nombre && <Text style={styles.errorText}>{errors.nombre}</Text>}
+      </View>
 
-      <Input
-        label="Apellido"
-        placeholder="Ingresa tu apellido"
-        value={formData.apellido}
-        onChangeText={(value) => updateField('apellido', value)}
-        autoCapitalize="words"
-        leftIcon="person-outline"
-        error={errors.apellido}
-        required
-      />
+      {/* Apellido */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Apellido *</Text>
+        <TextInput
+          style={[styles.input, errors.apellido && styles.inputError]}
+          value={formData.apellido}
+          onChangeText={(value) => updateField('apellido', value)}
+          placeholder="Ingresa tu apellido"
+          autoCapitalize="words"
+        />
+        {errors.apellido && <Text style={styles.errorText}>{errors.apellido}</Text>}
+      </View>
 
-      <Input
-        label="Email"
-        placeholder="ejemplo@correo.com"
-        value={formData.email}
-        onChangeText={(value) => updateField('email', value)}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        leftIcon="mail-outline"
-        error={errors.email}
-        required
-      />
+      {/* Email */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Email *</Text>
+        <TextInput
+          style={[styles.input, errors.email && styles.inputError]}
+          value={formData.email}
+          onChangeText={(value) => updateField('email', value)}
+          placeholder="ejemplo@correo.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+        />
+        {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+      </View>
 
-      <Input
-        label="Cédula de Identidad"
-        placeholder="12345678 (sin puntos ni guiones)"
-        value={formData.ci}
-        onChangeText={(value) => updateField('ci', value.replace(/\D/g, ''))} // Solo números
-        keyboardType="numeric"
-        leftIcon="card-outline"
-        error={errors.ci}
-        required
-      />
+      {/* Cédula */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Cédula de Identidad *</Text>
+        <TextInput
+          style={[styles.input, errors.ci && styles.inputError]}
+          value={formData.ci}
+          onChangeText={(value) => updateField('ci', value.replace(/\D/g, ''))}
+          placeholder="12345678 (sin puntos ni guiones)"
+          keyboardType="numeric"
+        />
+        {errors.ci && <Text style={styles.errorText}>{errors.ci}</Text>}
+      </View>
 
-      <Input
-        label="Fecha de Nacimiento"
-        placeholder="YYYY-MM-DD (ej: 1990-05-15)"
-        value={formData.fechaNac}
-        onChangeText={(value) => updateField('fechaNac', value)}
-        leftIcon="calendar-outline"
-        error={errors.fechaNac}
-        required
-      />
+      {/* Fecha de nacimiento */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Fecha de Nacimiento *</Text>
+        <TextInput
+          style={[styles.input, errors.fechaNac && styles.inputError]}
+          value={formData.fechaNac}
+          onChangeText={(value) => updateField('fechaNac', value)}
+          placeholder="YYYY-MM-DD (ej: 1990-05-15)"
+        />
+        {errors.fechaNac && <Text style={styles.errorText}>{errors.fechaNac}</Text>}
+      </View>
 
-      <Input
-        label="Teléfono"
-        placeholder="099123456 (opcional)"
-        value={formData.telefono}
-        onChangeText={(value) => updateField('telefono', value.replace(/\D/g, ''))} // Solo números
-        keyboardType="phone-pad"
-        leftIcon="call-outline"
-        error={errors.telefono}
-      />
+      {/* Teléfono */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Teléfono</Text>
+        <TextInput
+          style={[styles.input, errors.telefono && styles.inputError]}
+          value={formData.telefono}
+          onChangeText={(value) => updateField('telefono', value.replace(/\D/g, ''))}
+          placeholder="099123456 (opcional)"
+          keyboardType="phone-pad"
+        />
+        {errors.telefono && <Text style={styles.errorText}>{errors.telefono}</Text>}
+      </View>
 
-      <Input
-        label="Contraseña"
-        placeholder="Mínimo 8 caracteres"
-        value={formData.contrasenia}
-        onChangeText={(value) => updateField('contrasenia', value)}
-        secureTextEntry
-        leftIcon="lock-closed-outline"
-        error={errors.contrasenia}
-        required
-      />
+      {/* Contraseña */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Contraseña *</Text>
+        <TextInput
+          style={[styles.input, errors.contrasenia && styles.inputError]}
+          value={formData.contrasenia}
+          onChangeText={(value) => updateField('contrasenia', value)}
+          placeholder="Mínimo 8 caracteres"
+          secureTextEntry
+        />
+        {errors.contrasenia && <Text style={styles.errorText}>{errors.contrasenia}</Text>}
+      </View>
 
-      <Input
-        label="Confirmar Contraseña"
-        placeholder="Repite tu contraseña"
-        value={formData.confirmPassword}
-        onChangeText={(value) => updateField('confirmPassword', value)}
-        secureTextEntry
-        leftIcon="lock-closed-outline"
-        error={errors.confirmPassword}
-        required
-      />
+      {/* Confirmar contraseña */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Confirmar Contraseña *</Text>
+        <TextInput
+          style={[styles.input, errors.confirmPassword && styles.inputError]}
+          value={formData.confirmPassword}
+          onChangeText={(value) => updateField('confirmPassword', value)}
+          placeholder="Repite tu contraseña"
+          secureTextEntry
+        />
+        {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+      </View>
 
-      <Button
-        title="Crear Cuenta"
+      <TouchableOpacity
+        style={[styles.registerButton, isLoading && styles.buttonDisabled]}
         onPress={handleSubmit}
-        loading={isLoading}
-        style={styles.registerButton}
-      />
+        disabled={isLoading}
+      >
+        <Text style={styles.registerButtonText}>
+          {isLoading ? 'Creando cuenta...' : 'Crear Cuenta'}
+        </Text>
+      </TouchableOpacity>
 
       <View style={styles.loginContainer}>
-        <ThemedText style={styles.loginText}>¿Ya tienes cuenta? </ThemedText>
-        <Button
-          title="Inicia Sesión"
-          onPress={onLogin}
-          variant="outline"
-          size="small"
-        />
+        <Text style={styles.loginText}>¿Ya tienes cuenta? </Text>
+        <TouchableOpacity onPress={onLogin}>
+          <Text style={styles.loginLink}>Inicia Sesión</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -224,20 +250,64 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 24,
+    backgroundColor: '#fff',
   },
   title: {
+    fontSize: 32,
+    fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 8,
+    color: '#000',
   },
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 24,
+    color: '#666',
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#000',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#e1e5e9',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    backgroundColor: '#f9fafb',
+    color: '#000',
+  },
+  inputError: {
+    borderColor: '#dc3545',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#dc3545',
+    marginTop: 4,
   },
   registerButton: {
-    marginTop: 8,
+    backgroundColor: '#2563eb',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 20,
     marginBottom: 24,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  registerButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
   },
   loginContainer: {
     flexDirection: 'row',
@@ -247,5 +317,11 @@ const styles = StyleSheet.create({
   },
   loginText: {
     fontSize: 16,
+    color: '#666',
+  },
+  loginLink: {
+    fontSize: 16,
+    color: '#2563eb',
+    fontWeight: '600',
   },
 });

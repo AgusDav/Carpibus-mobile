@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Tipos basados en el backend real
 export interface LoginRequest {

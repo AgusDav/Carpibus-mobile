@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Ticket, PurchaseRequest, ticketsService } from '../lib/api/tickets';
+import { useAuth } from '../lib/context/AuthContext';
 
 export const useTickets = () => {
+  const { user } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -11,13 +13,14 @@ export const useTickets = () => {
       setIsLoading(true);
       setError(null);
 
-      // ⚠️ NOTA: Este endpoint no existe en el backend actual
-      // Necesitarías pedirle a tu compañero que lo implemente
-      // const response = await ticketsService.getMyTickets();
-      // setTickets(response);
+      // Verificar que el usuario esté autenticado
+      if (!user || !user.id) {
+        throw new Error('Usuario no autenticado');
+      }
 
-      // Por ahora, array vacío
-      setTickets([]);
+      // Usar el endpoint correcto del backend: /api/cliente/{clienteId}/historial-pasajes
+      const response = await ticketsService.getTicketsByClientId(user.id);
+      setTickets(response);
     } catch (err: any) {
       setError(err.message || 'Error cargando pasajes');
       console.error('Error fetching tickets:', err);

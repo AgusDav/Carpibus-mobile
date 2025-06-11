@@ -14,6 +14,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { useTickets } from '@/hooks/useTickets';
 import { Ticket } from '@/lib/api/tickets';
+import { ThemedText } from '@/components/ThemedText';
 
 export default function TicketsScreen() {
   const {

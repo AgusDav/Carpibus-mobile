@@ -76,12 +76,18 @@ export const ticketsService = {
     return response;
   },
 
-  // ⚠️ Nota: No hay endpoint específico para obtener pasajes del cliente
-  // Necesitarías pedirle a tu compañero que agregue este endpoint
+  // ✅ NUEVA FUNCIÓN: Obtener pasajes de un cliente específico
+  async getTicketsByClientId(clienteId: number): Promise<Ticket[]> {
+    const response = await apiClient.get<Ticket[]>(
+      `/api/cliente/${clienteId}/historial-pasajes`,
+      true // Requiere autenticación
+    );
+    return response;
+  },
+
+  // Función legacy para compatibilidad (ahora usa la nueva implementación)
   async getMyTickets(): Promise<Ticket[]> {
-    // Este endpoint no existe en el backend actual
-    // Podrías usar /api/vendedor/viajes/{viajeId}/pasajes pero necesitas el viajeId
-    throw new Error('Endpoint getMyTickets no implementado en el backend');
+    throw new Error('Use getTicketsByClientId() con el ID del usuario autenticado');
   },
 
   // PayPal integration

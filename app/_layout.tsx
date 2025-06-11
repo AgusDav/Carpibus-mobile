@@ -66,7 +66,7 @@ function RootLayoutNav() {
           }}
         />
         {/* Pantalla 404 */}
-        <Stack.Screen name="+not-found" />
+       <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

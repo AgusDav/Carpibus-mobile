@@ -26,7 +26,7 @@ export default function ProfileScreen() {
   };
 
   const handleChangePassword = () => {
-    router.push('/profile/change-password');
+    router.push('/profile/changePassword');
   };
 
   const handleLogout = () => {
@@ -116,35 +116,13 @@ export default function ProfileScreen() {
             subtitle={user?.createdAt ? formatters.date(user.createdAt, 'long') : '-'}
             showArrow={false}
           />
-        </ThemedView>
 
-        <ThemedView style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>Seguridad</ThemedText>
-
-          <ProfileItem
-            icon="lock-closed-outline"
-            title="Cambiar Contraseña"
-            subtitle="Actualizar tu contraseña"
-            onPress={handleChangePassword}
-          />
-        </ThemedView>
-
-        <ThemedView style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>Aplicación</ThemedText>
-
-          <ProfileItem
-            icon="help-circle-outline"
-            title="Ayuda y Soporte"
-            subtitle="Obtener ayuda"
-            onPress={() => {/* TODO: Implementar */}}
-          />
-
-          <ProfileItem
-            icon="information-circle-outline"
-            title="Acerca de"
-            subtitle="Versión 1.0.0"
-            onPress={() => {/* TODO: Implementar */}}
-          />
+            <ProfileItem
+                icon="lock-closed-outline"
+                title="Cambiar Contraseña"
+                subtitle="Actualizar tu contraseña"
+                onPress={handleChangePassword}
+            />
         </ThemedView>
 
         <ThemedView style={styles.logoutSection}>

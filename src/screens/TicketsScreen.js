@@ -98,8 +98,8 @@ export default function TicketsScreen({ navigation }) {
         <Text style={styles.ticketRoute}>
           {item.origenViaje} → {item.destinoViaje}
         </Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.estadoPasaje) }]}>
-          <Text style={styles.statusText}>{getStatusText(item.estadoPasaje)}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.estado) }]}>
+          <Text style={styles.statusText}>{getStatusText(item.estado)}</Text>
         </View>
       </View>
 

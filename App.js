@@ -17,6 +17,7 @@ import TicketsScreen from './src/screens/TicketsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import TripDetailScreen from './src/screens/TripDetailScreen';
 import PurchaseScreen from './src/screens/PurchaseScreen';
+import ConfigurationScreen from './src/screens/PurchaseScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -67,20 +68,48 @@ function AuthNavigator() {
 function MainNavigator() {
   return (
     <Stack.Navigator>
-      <Stack.Screen 
-        name="Main" 
-        component={TabNavigator} 
+      <Stack.Screen
+        name="Main"
+        component={TabNavigator}
         options={{ headerShown: false }}
       />
-      <Stack.Screen 
-        name="TripDetail" 
+      <Stack.Screen
+        name="TripDetail"
         component={TripDetailScreen}
-        options={{ title: 'Detalle del Viaje' }}
+        options={{
+          title: 'Detalle del Viaje',
+          headerBackTitleVisible: false,
+        }}
       />
-      <Stack.Screen 
-        name="Purchase" 
+      <Stack.Screen
+        name="Purchase"
         component={PurchaseScreen}
-        options={{ title: 'Comprar Pasaje' }}
+        options={{
+          title: 'Comprar Pasaje',
+          headerBackTitleVisible: false,
+        }}
+      />
+      {/* Nuevas pantallas del perfil */}
+      <Stack.Screen
+        name="Configuration"
+        component={ConfigurationScreen}
+        options={{
+          headerShown: false, // La pantalla maneja su propio header
+        }}
+      />
+      <Stack.Screen
+        name="Help"
+        component={HelpScreen}
+        options={{
+          headerShown: false, // La pantalla maneja su propio header
+        }}
+      />
+      <Stack.Screen
+        name="About"
+        component={AboutScreen}
+        options={{
+          headerShown: false, // La pantalla maneja su propio header
+        }}
       />
     </Stack.Navigator>
   );

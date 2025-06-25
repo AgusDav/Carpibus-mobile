@@ -1,19 +1,48 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useAuth } from '../context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getCurrentUserProfile } from '../services/api';
 
-export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+export default function ProfileScreen({ navigation }) {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleLogout = () => {
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  // Escuchar cuando la pantalla recibe foco para recargar datos
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadUserData();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  const loadUserData = async () => {
+    try {
+      const response = await getCurrentUserProfile();
+      setUser(response.data);
+    } catch (error) {
+      console.error('Error al cargar datos del usuario:', error);
+      Alert.alert('Error', 'No se pudieron cargar los datos del usuario');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
     Alert.alert(
       'Cerrar Sesión',
       '¿Estás seguro que deseas cerrar sesión?',
@@ -25,7 +54,17 @@ export default function ProfileScreen() {
         {
           text: 'Cerrar Sesión',
           style: 'destructive',
-          onPress: logout,
+          onPress: async () => {
+            try {
+              await AsyncStorage.multiRemove(['userToken', 'userData']);
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            } catch (error) {
+              console.error('Error al cerrar sesión:', error);
+            }
+          },
         },
       ]
     );
@@ -33,38 +72,47 @@ export default function ProfileScreen() {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'No especificado';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES');
+    try {
+      return new Date(dateString).toLocaleDateString('es-UY');
+    } catch {
+      return 'Fecha inválida';
+    }
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Cargando perfil...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mi Perfil</Text>
-      </View>
-
-      <View style={styles.content}>
-        {/* Información del usuario */}
-        <View style={styles.userInfo}>
-          <View style={styles.avatar}>
-            <Icon name="person" size={48} color="#2563eb" />
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Header del perfil */}
+        <View style={styles.profileHeader}>
+          <View style={styles.avatarContainer}>
+            <Icon name="person" size={40} color="#007AFF" />
           </View>
           <Text style={styles.userName}>
             {user?.nombre} {user?.apellido}
           </Text>
           <Text style={styles.userEmail}>{user?.email}</Text>
-          <Text style={styles.userRole}>{user?.rol}</Text>
         </View>
 
-        {/* Detalles del perfil */}
-        <View style={styles.detailsSection}>
+        {/* Información personal */}
+        <View style={styles.infoSection}>
           <Text style={styles.sectionTitle}>Información Personal</Text>
 
           <View style={styles.detailRow}>
             <Icon name="card-outline" size={20} color="#666" />
             <View style={styles.detailInfo}>
               <Text style={styles.detailLabel}>Cédula</Text>
-              <Text style={styles.detailValue}>{user?.ci || 'No especificado'}</Text>
+              <Text style={styles.detailValue}>{user?.ci}</Text>
             </View>
           </View>
 
@@ -97,19 +145,28 @@ export default function ProfileScreen() {
 
         {/* Opciones */}
         <View style={styles.optionsSection}>
-          <TouchableOpacity style={styles.optionRow}>
+          <TouchableOpacity
+            style={styles.optionRow}
+            onPress={() => navigation.navigate('Configuration')}
+          >
             <Icon name="settings-outline" size={24} color="#666" />
             <Text style={styles.optionText}>Configuración</Text>
             <Icon name="chevron-forward" size={20} color="#666" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.optionRow}>
+          <TouchableOpacity
+            style={styles.optionRow}
+            onPress={() => navigation.navigate('Help')}
+          >
             <Icon name="help-circle-outline" size={24} color="#666" />
             <Text style={styles.optionText}>Ayuda</Text>
             <Icon name="chevron-forward" size={20} color="#666" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.optionRow}>
+          <TouchableOpacity
+            style={styles.optionRow}
+            onPress={() => navigation.navigate('About')}
+          >
             <Icon name="information-circle-outline" size={24} color="#666" />
             <Text style={styles.optionText}>Acerca de</Text>
             <Icon name="chevron-forward" size={20} color="#666" />
@@ -121,7 +178,7 @@ export default function ProfileScreen() {
           <Icon name="log-out-outline" size={24} color="#e74c3c" />
           <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -129,28 +186,29 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
+    backgroundColor: '#f5f5f5',
   },
   content: {
     flex: 1,
-    padding: 16,
   },
-  userInfo: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 32,
   },
-  avatar: {
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+  profileHeader: {
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  avatarContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
@@ -161,29 +219,25 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: '600',
+    color: '#333',
     marginBottom: 4,
   },
   userEmail: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 4,
   },
-  userRole: {
-    fontSize: 14,
-    color: '#2563eb',
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  detailsSection: {
-    marginBottom: 32,
+  infoSection: {
+    backgroundColor: '#fff',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 20,
   },
   detailRow: {
     flexDirection: 'row',
@@ -193,8 +247,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f0f0f0',
   },
   detailInfo: {
-    marginLeft: 12,
     flex: 1,
+    marginLeft: 16,
   },
   detailLabel: {
     fontSize: 14,
@@ -203,11 +257,14 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     fontSize: 16,
-    color: '#000',
+    color: '#333',
     fontWeight: '500',
   },
   optionsSection: {
-    marginBottom: 32,
+    backgroundColor: '#fff',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
   optionRow: {
     flexDirection: 'row',
@@ -218,23 +275,26 @@ const styles = StyleSheet.create({
   },
   optionText: {
     flex: 1,
-    marginLeft: 12,
     fontSize: 16,
-    color: '#000',
+    color: '#333',
+    marginLeft: 16,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#fff',
     paddingVertical: 16,
+    marginHorizontal: 16,
+    marginBottom: 32,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e74c3c',
   },
   logoutText: {
-    marginLeft: 8,
     fontSize: 16,
     color: '#e74c3c',
     fontWeight: '600',
+    marginLeft: 8,
   },
 });

@@ -82,7 +82,7 @@ export default function TicketsScreen({ navigation }) {
   const getStatusText = (estado) => {
     switch (estado) {
       case 'VENDIDO':
-        return 'Confirmado';
+        return 'Vendido';
       case 'DEVUELTO':
         return 'Devuelto';
       case 'RESERVADO':

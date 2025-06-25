@@ -17,7 +17,9 @@ import TicketsScreen from './src/screens/TicketsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import TripDetailScreen from './src/screens/TripDetailScreen';
 import PurchaseScreen from './src/screens/PurchaseScreen';
-import ConfigurationScreen from './src/screens/PurchaseScreen';
+import ConfigurationScreen from './src/screens/ConfigurationScreen';
+import HelpScreen from './src/screens/HelpScreen';
+import AboutScreen from './src/screens/AboutScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();

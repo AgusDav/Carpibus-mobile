@@ -60,7 +60,7 @@ export default function AboutScreen({ navigation }) {
           <View style={styles.logoContainer}>
             <Icon name="bus" size={48} color="#007AFF" />
           </View>
-          <Text style={styles.companyName}>CarpiBus</Text>
+          <Text style={styles.companyName}>Carpibus</Text>
           <Text style={styles.tagline}>Tu viaje, nuestra pasión</Text>
           <Text style={styles.version}>Versión 1.0.0</Text>
         </View>

@@ -53,6 +53,27 @@ const formatCurrency = (amount) => {
   return `$${amount.toLocaleString('es-ES')}`;
 };
 
+// Función auxiliar para extraer fecha del LocalDateTime
+const extractDateFromDateTime = (dateTimeString) => {
+  if (!dateTimeString) return null;
+  try {
+    return dateTimeString.split('T')[0]; // "2024-01-15T10:30:00" -> "2024-01-15"
+  } catch {
+    return null;
+  }
+};
+
+// Función auxiliar para extraer hora del LocalDateTime
+const extractTimeFromDateTime = (dateTimeString) => {
+  if (!dateTimeString) return null;
+  try {
+    const timePart = dateTimeString.split('T')[1]; // "2024-01-15T10:30:00" -> "10:30:00"
+    return timePart ? timePart.substring(0, 5) : null; // "10:30:00" -> "10:30"
+  } catch {
+    return null;
+  }
+};
+
 export default function TripDetailScreen({ route, navigation }) {
   const { tripId } = route.params;
   const [tripDetail, setTripDetail] = useState(null);
@@ -84,12 +105,33 @@ export default function TripDetailScreen({ route, navigation }) {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>No se pudo cargar el detalle del viaje</Text>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButtonText}>Volver</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
-  const viaje = tripDetail.viaje;
+  // Mapear la estructura de ViajeDetalleConAsientosDTO
+  const viaje = {
+    id: tripDetail.id,
+    fecha: tripDetail.fecha, // Este viene como LocalDate
+    horaSalida: tripDetail.horaSalida, // Este viene como LocalTime
+    horaLlegada: tripDetail.horaLlegada, // Este viene como LocalTime
+    origen: { nombre: tripDetail.origenNombre },
+    destino: { nombre: tripDetail.destinoNombre },
+    precio: tripDetail.precio,
+    estado: tripDetail.estado,
+    omnibus: {
+      matricula: tripDetail.omnibusMatricula,
+      capacidad: tripDetail.capacidadOmnibus
+    }
+  };
+
   const asientosDisponibles = tripDetail.asientosDisponibles || 0;
 
   return (
@@ -98,11 +140,11 @@ export default function TripDetailScreen({ route, navigation }) {
         <View style={styles.headerCard}>
           <View style={styles.route}>
             <Text style={styles.locationText}>
-              {viaje.origen?.nombre || 'Origen N/A'}
+              {viaje.origen.nombre}
             </Text>
             <Icon name="arrow-forward" size={24} color="#666" />
             <Text style={styles.locationText}>
-              {viaje.destino?.nombre || 'Destino N/A'}
+              {viaje.destino.nombre}
             </Text>
           </View>
           <Text style={styles.priceText}>
@@ -138,31 +180,17 @@ export default function TripDetailScreen({ route, navigation }) {
             <View style={styles.detailInfo}>
               <Text style={styles.detailLabel}>Ruta</Text>
               <Text style={styles.detailValue}>
-                {viaje.origen?.nombre || 'N/A'}, {viaje.origen?.departamento || 'N/A'} → {viaje.destino?.nombre || 'N/A'}, {viaje.destino?.departamento || 'N/A'}
+                {viaje.origen.nombre} → {viaje.destino.nombre}
               </Text>
             </View>
           </View>
-        </View>
-
-        <View style={styles.detailCard}>
-          <Text style={styles.sectionTitle}>Información del Ómnibus</Text>
 
           <View style={styles.detailRow}>
             <Icon name="bus-outline" size={20} color="#666" />
             <View style={styles.detailInfo}>
-              <Text style={styles.detailLabel}>Modelo</Text>
+              <Text style={styles.detailLabel}>Ómnibus</Text>
               <Text style={styles.detailValue}>
-                {viaje.omnibus?.modelo || 'Modelo N/A'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Icon name="card-outline" size={20} color="#666" />
-            <View style={styles.detailInfo}>
-              <Text style={styles.detailLabel}>Matrícula</Text>
-              <Text style={styles.detailValue}>
-                {viaje.omnibus?.matricula || 'Matrícula N/A'}
+                {viaje.omnibus.matricula} (Capacidad: {viaje.omnibus.capacidad} asientos)
               </Text>
             </View>
           </View>
@@ -170,35 +198,55 @@ export default function TripDetailScreen({ route, navigation }) {
           <View style={styles.detailRow}>
             <Icon name="people-outline" size={20} color="#666" />
             <View style={styles.detailInfo}>
-              <Text style={styles.detailLabel}>Capacidad</Text>
-              <Text style={styles.detailValue}>
-                {viaje.omnibus?.capacidad || 0} asientos
+              <Text style={styles.detailLabel}>Disponibilidad</Text>
+              <Text style={[
+                styles.detailValue,
+                { color: asientosDisponibles > 0 ? '#16a34a' : '#dc2626' }
+              ]}>
+                {asientosDisponibles} asientos disponibles
               </Text>
             </View>
           </View>
 
           <View style={styles.detailRow}>
-            <Icon name="checkmark-circle-outline" size={20} color="#27ae60" />
+            <Icon name="information-circle-outline" size={20} color="#666" />
             <View style={styles.detailInfo}>
-              <Text style={styles.detailLabel}>Asientos Disponibles</Text>
-              <Text style={[styles.detailValue, { color: '#27ae60' }]}>
-                {asientosDisponibles} disponibles
+              <Text style={styles.detailLabel}>Estado</Text>
+              <Text style={styles.detailValue}>
+                {viaje.estado}
               </Text>
             </View>
           </View>
         </View>
+
+        {/* Mostrar información de asientos ocupados si está disponible */}
+        {tripDetail.numerosAsientoOcupados && tripDetail.numerosAsientoOcupados.length > 0 && (
+          <View style={styles.detailCard}>
+            <Text style={styles.sectionTitle}>Asientos Ocupados</Text>
+            <Text style={styles.occupiedSeats}>
+              {tripDetail.numerosAsientoOcupados.sort((a, b) => a - b).join(', ')}
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
-      {asientosDisponibles > 0 && !viaje.ventasCerradas && (
-        <View style={styles.footer}>
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backButtonText}>Volver</Text>
+        </TouchableOpacity>
+
+        {asientosDisponibles > 0 && (
           <TouchableOpacity
             style={styles.bookButton}
             onPress={() => navigation.navigate('Purchase', { tripId: viaje.id })}
           >
-            <Text style={styles.bookButtonText}>Comprar Pasaje</Text>
+            <Text style={styles.bookButtonText}>Reservar Asiento</Text>
           </TouchableOpacity>
-        </View>
-      )}
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -219,88 +267,116 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#e74c3c',
+    color: '#dc2626',
     textAlign: 'center',
+    marginBottom: 20,
   },
   headerCard: {
     backgroundColor: '#fff',
     padding: 20,
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    margin: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   route: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 12,
   },
   locationText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
-    marginHorizontal: 8,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
   },
   priceText: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#2563eb',
     textAlign: 'center',
   },
   detailCard: {
     backgroundColor: '#fff',
     margin: 16,
-    padding: 16,
+    marginTop: 0,
     borderRadius: 12,
+    padding: 16,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: '600',
+    color: '#333',
     marginBottom: 16,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   detailInfo: {
-    marginLeft: 12,
     flex: 1,
+    marginLeft: 12,
   },
   detailLabel: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   detailValue: {
     fontSize: 16,
-    color: '#000',
+    color: '#333',
     fontWeight: '500',
   },
+  occupiedSeats: {
+    fontSize: 16,
+    color: '#dc2626',
+    backgroundColor: '#fef2f2',
+    padding: 12,
+    borderRadius: 8,
+    textAlign: 'center',
+  },
   footer: {
-    backgroundColor: '#fff',
+    flexDirection: 'row',
     padding: 16,
+    backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+    borderTopColor: '#e5e7eb',
+  },
+  backButton: {
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginRight: 8,
+    flex: 1,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#374151',
+    textAlign: 'center',
   },
   bookButton: {
     backgroundColor: '#2563eb',
-    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    marginLeft: 8,
+    flex: 2,
   },
   bookButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+    color: '#fff',
+    textAlign: 'center',
   },
 });

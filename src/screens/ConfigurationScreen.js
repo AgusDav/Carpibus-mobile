@@ -11,12 +11,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getCurrentUserProfile, updateUserProfile, changePassword } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { apiClient } from '../api/client';
 
 export default function ConfigurationScreen({ navigation }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user: contextUser, updateUser } = useAuth();
+  const [user, setUser] = useState(contextUser);
+  const [loading, setLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [passwordMode, setPasswordMode] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -43,14 +44,55 @@ export default function ConfigurationScreen({ navigation }) {
   });
 
   useEffect(() => {
-    loadUserData();
-  }, []);
+    if (contextUser) {
+      setUser(contextUser);
+      setFormData({
+        nombre: contextUser.nombre || '',
+        apellido: contextUser.apellido || '',
+        telefono: contextUser.telefono || '',
+        email: contextUser.email || '',
+      });
+    }
+  }, [contextUser]);
+
+  const getCurrentUserProfile = async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.get('/api/user/profile', true);
+      return response;
+    } catch (error) {
+      console.error('Error al obtener perfil:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateUserProfile = async (updateData) => {
+    try {
+      const response = await apiClient.put('/api/user/profile', updateData, true);
+      return response;
+    } catch (error) {
+      console.error('Error al actualizar perfil:', error);
+      throw error;
+    }
+  };
+
+  const changePassword = async (passwordData) => {
+    try {
+      const response = await apiClient.put('/api/user/password', passwordData, true);
+      return response;
+    } catch (error) {
+      console.error('Error al cambiar contraseña:', error);
+      throw error;
+    }
+  };
 
   const loadUserData = async () => {
     try {
-      const response = await getCurrentUserProfile();
-      const userData = response.data;
+      const userData = await getCurrentUserProfile();
       setUser(userData);
+      updateUser(userData); // Actualizar también el contexto
       setFormData({
         nombre: userData.nombre || '',
         apellido: userData.apellido || '',
@@ -60,8 +102,6 @@ export default function ConfigurationScreen({ navigation }) {
     } catch (error) {
       console.error('Error al cargar datos del usuario:', error);
       Alert.alert('Error', 'No se pudieron cargar los datos del usuario');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -73,13 +113,14 @@ export default function ConfigurationScreen({ navigation }) {
 
     setSaving(true);
     try {
-      const response = await updateUserProfile(formData);
-      setUser(response.data);
+      const updatedUser = await updateUserProfile(formData);
+      setUser(updatedUser);
+      updateUser(updatedUser); // Actualizar el contexto
       setEditMode(false);
       Alert.alert('Éxito', 'Perfil actualizado correctamente');
     } catch (error) {
       console.error('Error al actualizar perfil:', error);
-      Alert.alert('Error', error.response?.data?.message || 'No se pudo actualizar el perfil');
+      Alert.alert('Error', error.message || 'No se pudo actualizar el perfil');
     } finally {
       setSaving(false);
     }
@@ -117,7 +158,7 @@ export default function ConfigurationScreen({ navigation }) {
       Alert.alert('Éxito', 'Contraseña cambiada correctamente');
     } catch (error) {
       console.error('Error al cambiar contraseña:', error);
-      Alert.alert('Error', error.response?.data?.message || 'No se pudo cambiar la contraseña');
+      Alert.alert('Error', error.message || 'No se pudo cambiar la contraseña');
     } finally {
       setSaving(false);
     }

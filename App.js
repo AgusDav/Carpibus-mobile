@@ -5,6 +5,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
 
+// PayPal Provider oficial
+import { PayPalScriptProvider } from '@paypal/react-paypal-js';
+
 // Context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 
@@ -23,6 +26,13 @@ import AboutScreen from './src/screens/AboutScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+// Configuración de PayPal - misma que en tu web
+const initialPayPalOptions = {
+  "client-id": "AclKeFueUT6hu_vNmKjHR4MEfn7vyF3J3mzk8DxkkM0y_Gc9DyD2250fCktw_Tt8h3Qu8--U8EDWEc7u",
+  currency: "USD",
+  intent: "capture",
+};
 
 function TabNavigator() {
   return (
@@ -87,8 +97,7 @@ function MainNavigator() {
         name="Purchase"
         component={PurchaseScreen}
         options={{
-          title: 'Comprar Pasaje',
-          headerBackTitleVisible: false,
+          headerShown: false, // PurchaseScreen maneja su propio header
         }}
       />
       {/* Nuevas pantallas del perfil */}
@@ -96,21 +105,21 @@ function MainNavigator() {
         name="Configuration"
         component={ConfigurationScreen}
         options={{
-          headerShown: false, // La pantalla maneja su propio header
+          headerShown: false,
         }}
       />
       <Stack.Screen
         name="Help"
         component={HelpScreen}
         options={{
-          headerShown: false, // La pantalla maneja su propio header
+          headerShown: false,
         }}
       />
       <Stack.Screen
         name="About"
         component={AboutScreen}
         options={{
-          headerShown: false, // La pantalla maneja su propio header
+          headerShown: false,
         }}
       />
     </Stack.Navigator>
@@ -137,9 +146,11 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <PayPalScriptProvider options={initialPayPalOptions}>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </PayPalScriptProvider>
   );
 }
 

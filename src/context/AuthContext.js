@@ -81,18 +81,41 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
+      console.log('Iniciando logout...');
+
       // Primero limpiar el estado local
       setUser(null);
 
       // Luego limpiar el storage
       await AsyncStorage.multiRemove(['auth_token', 'user_data']);
+
+      console.log('Logout completado');
+
+      // También llamar al servicio de logout si existe
+      await authService.logout();
+
     } catch (error) {
       console.error('Error logging out:', error);
+      // Aunque haya error, asegurar que el estado se limpie
+      setUser(null);
+      try {
+        await AsyncStorage.multiRemove(['auth_token', 'user_data']);
+      } catch (storageError) {
+        console.error('Error clearing storage:', storageError);
+      }
     }
   };
 
-  const updateUser = (updatedUser) => {
-    setUser(updatedUser);
+  const updateUser = async (updatedUserData) => {
+    try {
+      // Actualizar el estado local
+      setUser(updatedUserData);
+
+      // Actualizar el storage
+      await AsyncStorage.setItem('user_data', JSON.stringify(updatedUserData));
+    } catch (error) {
+      console.error('Error updating user:', error);
+    }
   };
 
   return (

@@ -1,4 +1,4 @@
-// PayPalNativePayment.js - Usando token igual que PurchaseScreen.js
+// PayPalNativePayment.js - Versión corregida con debug de autenticación
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -11,6 +11,7 @@ import {
   Linking,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
 
@@ -21,7 +22,35 @@ const PayPalNativePayment = ({ route, navigation }) => {
 
   useEffect(() => {
     loadTripData();
+    // Debug token al cargar el componente
+    debugAuthToken();
   }, []);
+
+  // Función para debuggear el token
+  const debugAuthToken = async () => {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const userData = await AsyncStorage.getItem('user_data');
+
+      console.log('🔍 DEBUG AUTH en PayPal Component:');
+      console.log('Token presente:', token ? 'SÍ' : 'NO');
+      console.log('User data:', userData ? 'SÍ' : 'NO');
+
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const now = Date.now() / 1000;
+          console.log('Token expira en:', new Date(payload.exp * 1000).toLocaleString());
+          console.log('Token expirado:', payload.exp < now ? 'SÍ' : 'NO');
+          console.log('Authorities:', payload.authorities);
+        } catch (e) {
+          console.log('Error decodificando token:', e);
+        }
+      }
+    } catch (error) {
+      console.error('Error en debug auth:', error);
+    }
+  };
 
   const loadTripData = async () => {
     try {
@@ -61,18 +90,26 @@ const PayPalNativePayment = ({ route, navigation }) => {
   const precios = calcularPrecio();
 
   // ========================================
-  // PASO 1: Crear orden PayPal usando tu backend
+  // PASO 1: Crear orden PayPal con mejor debug
   // ========================================
   const createPayPalOrder = async () => {
     try {
       console.log('🚀 Creando orden PayPal con monto:', precios.precioFinal);
       console.log('👤 Usuario ID:', user.id);
 
+      // Debug del token antes de hacer la request
+      const token = await AsyncStorage.getItem('auth_token');
+      console.log('🔑 Token presente para PayPal request:', token ? 'SÍ' : 'NO');
+
+      if (!token) {
+        throw new Error('No hay token de autenticación. Por favor, inicia sesión nuevamente.');
+      }
+
       const requestBody = { amount: precios.precioFinal };
       console.log('📤 Request body:', requestBody);
 
-      // USAR APICLIENT IGUAL QUE EN PURCHASESCREEN
-      const response = await apiClient.post('/paypal/orders', requestBody, true);
+      // CAMBIO: Usar el endpoint correcto (agregar /api al inicio)
+      const response = await apiClient.post('/api/paypal/orders', requestBody, true);
       console.log('✅ Orden PayPal creada exitosamente:', response);
 
       return response;
@@ -80,8 +117,21 @@ const PayPalNativePayment = ({ route, navigation }) => {
     } catch (error) {
       console.error('💥 Error creating PayPal order:', error);
 
-      if (error.message.includes('Error en la solicitud')) {
-        throw new Error('Error de autenticación. Por favor, inicia sesión nuevamente.');
+      // Mejorar el manejo de errores específicos
+      if (error.message.includes('Sesión expirada') || error.message.includes('401')) {
+        // Token expirado - limpiar datos y redirigir al login
+        await AsyncStorage.multiRemove(['auth_token', 'user_data']);
+        Alert.alert(
+          'Sesión Expirada',
+          'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('Login')
+            }
+          ]
+        );
+        throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
       } else if (error.message.includes('Network request failed')) {
         throw new Error('Error de conexión. Verifica tu conexión a internet.');
       } else {
@@ -97,23 +147,47 @@ const PayPalNativePayment = ({ route, navigation }) => {
     setLoading(true);
 
     try {
+      // Verificar autenticación antes de proceder
+      await debugAuthToken();
+
       // 1. Crear orden usando tu backend
       const orderData = await createPayPalOrder();
 
-      // 2. Construir URL de PayPal con parámetros adicionales
-      const paypalUrl = `https://www.paypal.com/checkoutnow?token=${orderData.id}&useraction=commit&flow=minified`;
+      // 2. Construir URL de PayPal correcta para sandbox
+      // Para sandbox, usamos la URL de sandbox de PayPal
+      const paypalUrl = `https://www.sandbox.paypal.com/checkoutnow?token=${orderData.id}`;
 
       console.log('Abriendo PayPal URL:', paypalUrl);
 
       // 3. Configurar listener para el retorno
       setupReturnListener(orderData.id);
 
-      // 4. Abrir PayPal
-      const canOpen = await Linking.canOpenURL(paypalUrl);
-      if (canOpen) {
-        await Linking.openURL(paypalUrl);
-      } else {
-        throw new Error('No se puede abrir PayPal');
+      // 4. Intentar abrir PayPal con múltiples métodos
+      try {
+        const canOpen = await Linking.canOpenURL(paypalUrl);
+        console.log('¿Se puede abrir la URL?', canOpen);
+
+        if (canOpen) {
+          await Linking.openURL(paypalUrl);
+          console.log('URL abierta exitosamente');
+        } else {
+          // Si no se puede abrir directamente, intentar con el navegador por defecto
+          console.log('Intentando abrir con openURL directamente...');
+          await Linking.openURL(paypalUrl);
+        }
+      } catch (linkingError) {
+        console.error('Error específico de Linking:', linkingError);
+
+        // Como último recurso, intentar con una URL más simple
+        const fallbackUrl = `https://sandbox.paypal.com/checkoutnow?token=${orderData.id}`;
+        console.log('Intentando URL alternativa:', fallbackUrl);
+
+        try {
+          await Linking.openURL(fallbackUrl);
+        } catch (fallbackError) {
+          console.error('Error con URL alternativa:', fallbackError);
+          throw new Error('No se puede abrir PayPal. Verifica que tengas un navegador instalado.');
+        }
       }
 
     } catch (error) {
@@ -124,52 +198,31 @@ const PayPalNativePayment = ({ route, navigation }) => {
   };
 
   // ========================================
-  // PASO 3: Manejar retorno desde PayPal
+  // PASO 3: Manejar retorno desde PayPal (versión simplificada)
   // ========================================
   const setupReturnListener = (orderId) => {
-    let hasHandled = false; // Evitar múltiples procesamientos
+    // En lugar de usar deep links complejos, usamos un timeout
+    // y le damos la opción al usuario de confirmar si completó el pago
 
-    const handleDeepLink = async (event) => {
-      if (hasHandled) return;
-
-      const { url } = event;
-      console.log('Deep link received:', url);
-
-      // Remover listener
-      Linking.removeEventListener('url', handleDeepLink);
-      hasHandled = true;
-
-      if (url.includes('payment-success') || url.includes('success')) {
-        await handlePaymentSuccess(orderId);
-      } else if (url.includes('payment-cancel') || url.includes('cancel')) {
-        handlePaymentCancel();
-      } else {
-        // Si no es claro el resultado, verificar el estado
-        await checkPaymentStatus(orderId);
-      }
-
-      setLoading(false);
-    };
-
-    // Configurar listener
-    Linking.addEventListener('url', handleDeepLink);
-
-    // Timeout de seguridad
     setTimeout(() => {
-      if (!hasHandled) {
-        Linking.removeEventListener('url', handleDeepLink);
-        setLoading(false);
+      setLoading(false);
 
-        Alert.alert(
-          'Tiempo agotado',
-          '¿Completaste el pago en PayPal?',
-          [
-            { text: 'No, cancelar', style: 'cancel' },
-            { text: 'Sí, verificar', onPress: () => checkPaymentStatus(orderId) }
-          ]
-        );
-      }
-    }, 300000); // 5 minutos
+      Alert.alert(
+        'Verificar Pago',
+        '¿Completaste el pago en PayPal?',
+        [
+          {
+            text: 'No, cancelé',
+            style: 'cancel',
+            onPress: handlePaymentCancel
+          },
+          {
+            text: 'Sí, pagué',
+            onPress: () => handlePaymentSuccess(orderId)
+          }
+        ]
+      );
+    }, 10000); // 10 segundos para que el usuario complete el pago
   };
 
   // ========================================
@@ -179,15 +232,21 @@ const PayPalNativePayment = ({ route, navigation }) => {
     try {
       console.log('Procesando pago exitoso para orden:', orderId);
 
-      // 1. Capturar pago usando apiClient (igual que PurchaseScreen)
-      const captureResponse = await apiClient.post(`/paypal/orders/${orderId}/capture`, {}, true);
+      // Verificar token antes de capturar
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
+      }
+
+      // 1. Capturar pago usando apiClient
+      const captureResponse = await apiClient.post(`/api/paypal/orders/${orderId}/capture`, {}, true);
       console.log('Respuesta de captura PayPal:', captureResponse);
 
       if (captureResponse.status !== 'COMPLETED') {
         throw new Error('El pago no pudo ser completado en PayPal');
       }
 
-      // 2. Extraer el ID de la transacción (igual que en tu web)
+      // 2. Extraer el ID de la transacción
       let captureId = null;
       if (captureResponse.purchase_units && captureResponse.purchase_units[0]?.payments?.captures?.[0]?.id) {
         captureId = captureResponse.purchase_units[0].payments.captures[0].id;
@@ -200,7 +259,7 @@ const PayPalNativePayment = ({ route, navigation }) => {
 
       console.log('ID de captura obtenido:', captureId);
 
-      // 3. Registrar compra en tu backend (usando apiClient igual que PurchaseScreen)
+      // 3. Registrar compra en tu backend
       await registrarCompraEnBackend(captureId);
 
       // 4. Mostrar confirmación
@@ -214,17 +273,33 @@ const PayPalNativePayment = ({ route, navigation }) => {
           },
           {
             text: 'Buscar Más Viajes',
-            onPress: () => navigation.navigate('Viajes')
+            onPress: () => navigation.navigate('TripsScreen')
           }
         ]
       );
 
     } catch (error) {
       console.error('Error processing payment success:', error);
-      Alert.alert(
-        'Error al confirmar pago',
-        'Hubo un problema al confirmar tu pago. Si el dinero fue debitado, contacta soporte.'
-      );
+
+      // Si es error de autenticación, redirigir al login
+      if (error.message.includes('Sesión expirada') || error.message.includes('401')) {
+        await AsyncStorage.multiRemove(['auth_token', 'user_data']);
+        Alert.alert(
+          'Sesión Expirada',
+          'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('Login')
+            }
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Error al confirmar pago',
+          'Hubo un problema al confirmar tu pago. Si el dinero fue debitado, contacta soporte.'
+        );
+      }
     }
   };
 
@@ -236,11 +311,10 @@ const PayPalNativePayment = ({ route, navigation }) => {
   };
 
   // ========================================
-  // PASO 5: Registrar compra (usando apiClient igual que PurchaseScreen)
+  // PASO 5: Registrar compra
   // ========================================
   const registrarCompraEnBackend = async (paypalTransactionId) => {
     try {
-      // Usar apiClient igual que en PurchaseScreen.js
       const compraData = {
         viajeId: parseInt(tripId),
         clienteId: user.id,
@@ -250,8 +324,8 @@ const PayPalNativePayment = ({ route, navigation }) => {
 
       console.log('Registrando compra:', compraData);
 
-      // USAR APICLIENT IGUAL QUE EN PURCHASESCREEN
-      const response = await apiClient.post('/vendedor/pasajes/comprar', compraData, true);
+      // Usar endpoint correcto con /api
+      const response = await apiClient.post('/api/vendedor/pasajes/comprar', compraData, true);
 
       console.log('Compra registrada exitosamente:', response);
       return response;
@@ -278,14 +352,7 @@ const PayPalNativePayment = ({ route, navigation }) => {
   };
 
   if (!tripDetail) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Cargando información del viaje...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <Loading />;
   }
 
   return (
@@ -295,103 +362,67 @@ const PayPalNativePayment = ({ route, navigation }) => {
           <Icon name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Pago con PayPal</Text>
+        <View style={{ width: 24 }} />
       </View>
 
       <View style={styles.content}>
-        {/* Resumen del pedido */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Resumen del Pedido</Text>
+        {/* Información del viaje */}
+        <View style={styles.tripInfo}>
+          <Text style={styles.sectionTitle}>Información del Viaje</Text>
+          <Text style={styles.tripDetail}>Origen: {tripDetail.origen}</Text>
+          <Text style={styles.tripDetail}>Destino: {tripDetail.destino}</Text>
+          <Text style={styles.tripDetail}>Fecha: {tripDetail.fecha}</Text>
+          <Text style={styles.tripDetail}>Hora: {tripDetail.hora}</Text>
+          <Text style={styles.tripDetail}>Asiento: {asientoSeleccionado}</Text>
+        </View>
 
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Ruta:</Text>
-            <Text style={styles.summaryValue}>
-              {tripDetail.origenNombre} → {tripDetail.destinoNombre}
-            </Text>
-          </View>
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Asiento:</Text>
-            <Text style={styles.summaryValue}>{asientoSeleccionado}</Text>
-          </View>
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Precio base:</Text>
-            <Text style={styles.summaryValue}>${precios.precioBase.toFixed(2)}</Text>
+        {/* Información de precios */}
+        <View style={styles.priceInfo}>
+          <Text style={styles.sectionTitle}>Detalles del Precio</Text>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>Precio base:</Text>
+            <Text style={styles.priceValue}>${precios.precioBase.toFixed(2)}</Text>
           </View>
 
           {precios.tieneDescuento && (
-            <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, styles.discountText]}>
-                Descuento ({user?.tipoCliente}):
-              </Text>
-              <Text style={[styles.summaryValue, styles.discountText]}>
-                -${precios.descuento.toFixed(2)}
-              </Text>
-            </View>
+            <>
+              <View style={styles.priceRow}>
+                <Text style={styles.discountLabel}>Descuento ({user?.tipoCliente}):</Text>
+                <Text style={styles.discountValue}>-${precios.descuento.toFixed(2)}</Text>
+              </View>
+              <View style={styles.divider} />
+            </>
           )}
 
-          <View style={[styles.summaryRow, styles.totalRow]}>
+          <View style={styles.priceRow}>
             <Text style={styles.totalLabel}>Total a pagar:</Text>
             <Text style={styles.totalValue}>${precios.precioFinal.toFixed(2)}</Text>
           </View>
         </View>
 
-        {/* Información de PayPal */}
-        <View style={styles.section}>
-          <View style={styles.paypalInfo}>
-            <Icon name="logo-paypal" size={60} color="#0070ba" />
-            <Text style={styles.paypalTitle}>Pagar con PayPal</Text>
-            <Text style={styles.paypalDescription}>
-              Serás redirigido a PayPal para completar tu pago de forma segura.
-              La app se reabrirá automáticamente cuando termines.
-            </Text>
-          </View>
-        </View>
-
-        {/* Pasos del proceso */}
-        <View style={styles.section}>
-          <Text style={styles.stepsTitle}>Cómo funciona:</Text>
-          <View style={styles.step}>
-            <Text style={styles.stepNumber}>1</Text>
-            <Text style={styles.stepText}>Se abrirá PayPal en tu navegador</Text>
-          </View>
-          <View style={styles.step}>
-            <Text style={styles.stepNumber}>2</Text>
-            <Text style={styles.stepText}>Inicia sesión y confirma el pago</Text>
-          </View>
-          <View style={styles.step}>
-            <Text style={styles.stepNumber}>3</Text>
-            <Text style={styles.stepText}>Regresarás automáticamente a la app</Text>
-          </View>
-        </View>
-
-        {/* Información de seguridad */}
-        <View style={styles.securityInfo}>
-          <Icon name="shield-checkmark" size={20} color="#4CAF50" />
-          <Text style={styles.securityText}>
-            Pago protegido por PayPal - Misma seguridad que la web
-          </Text>
-        </View>
-      </View>
-
-      {/* Botón de pago */}
-      <View style={styles.footer}>
+        {/* Botón de pago */}
         <TouchableOpacity
           style={[styles.payButton, loading && styles.payButtonDisabled]}
           onPress={openPayPalPayment}
           disabled={loading}
         >
           {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color="#fff" />
-              <Text style={styles.loadingText}>Abriendo PayPal...</Text>
-            </View>
+            <ActivityIndicator color="#FFF" />
           ) : (
-            <Text style={styles.payButtonText}>
-              Pagar ${precios.precioFinal.toFixed(2)} con PayPal
-            </Text>
+            <>
+              <Icon name="logo-paypal" size={24} color="#FFF" style={styles.paypalIcon} />
+              <Text style={styles.payButtonText}>Pagar con PayPal</Text>
+            </>
           )}
         </TouchableOpacity>
+
+        {/* Información adicional */}
+        <View style={styles.infoBox}>
+          <Icon name="information-circle" size={20} color="#007BFF" />
+          <Text style={styles.infoText}>
+            Serás redirigido a PayPal para completar el pago de forma segura.
+          </Text>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -400,164 +431,138 @@ const PayPalNativePayment = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f5f5f5',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#E0E0E0',
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 16,
+    fontWeight: 'bold',
     color: '#333',
   },
   content: {
     flex: 1,
     padding: 16,
   },
-  section: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+  tripInfo: {
+    backgroundColor: '#FFF',
     padding: 16,
+    borderRadius: 12,
     marginBottom: 16,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 4,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: 'bold',
     color: '#333',
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  summaryRow: {
+  tripDetail: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  priceInfo: {
+    backgroundColor: '#FFF',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    marginBottom: 8,
   },
-  summaryLabel: {
-    fontSize: 16,
-    color: '#333',
+  priceLabel: {
+    fontSize: 14,
+    color: '#666',
   },
-  summaryValue: {
-    fontSize: 16,
+  priceValue: {
+    fontSize: 14,
     color: '#333',
     fontWeight: '500',
   },
-  discountText: {
-    color: '#4CAF50',
+  discountLabel: {
+    fontSize: 14,
+    color: '#28A745',
   },
-  totalRow: {
-    borderBottomWidth: 0,
-    borderTopWidth: 2,
-    borderTopColor: '#e0e0e0',
-    paddingTop: 12,
-    marginTop: 8,
+  discountValue: {
+    fontSize: 14,
+    color: '#28A745',
+    fontWeight: '500',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginVertical: 8,
   },
   totalLabel: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: 'bold',
     color: '#333',
   },
   totalValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#007AFF',
-  },
-  paypalInfo: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  paypalTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: '#0070ba',
-    marginTop: 12,
-    marginBottom: 12,
-  },
-  paypalDescription: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  stepsTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
+    fontWeight: 'bold',
+    color: '#007BFF',
   },
-  step: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  stepNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#0070ba',
-    color: '#fff',
-    textAlign: 'center',
-    lineHeight: 24,
-    fontSize: 12,
-    fontWeight: '600',
-    marginRight: 12,
-  },
-  stepText: {
-    fontSize: 14,
-    color: '#666',
-    flex: 1,
-  },
-  securityInfo: {
+  payButton: {
+    backgroundColor: '#0070BA',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 8,
-  },
-  securityText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  footer: {
     padding: 16,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-  },
-  payButton: {
-    backgroundColor: '#0070ba',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
+    borderRadius: 12,
+    marginBottom: 16,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   payButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#A0A0A0',
+  },
+  paypalIcon: {
+    marginRight: 8,
   },
   payButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    color: '#fff',
+    color: '#FFF',
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#E3F2FD',
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#007BFF',
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 8,
+    lineHeight: 16,
   },
 });
 

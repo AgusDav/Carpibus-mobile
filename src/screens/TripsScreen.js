@@ -7,8 +7,10 @@ import {
   StyleSheet,
   RefreshControl,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { tripsService } from '../api/trips';
 
 // Componentes
@@ -24,6 +26,38 @@ export default function TripsScreen({ navigation }) {
   useEffect(() => {
     // Cargar viajes al iniciar la pantalla
     searchTrips();
+
+    // DEBUG: Imprimir JWT y datos de usuario
+    const debugAuth = async () => {
+      try {
+        const token = await AsyncStorage.getItem('auth_token');
+        const userData = await AsyncStorage.getItem('user_data');
+
+        console.log('=== DEBUG AUTH DATA EN TRIPS SCREEN ===');
+        console.log('JWT Token:', token);
+        console.log('User Data from AsyncStorage:', userData);
+
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            console.log('=== JWT PAYLOAD DECODIFICADO ===');
+            console.log(JSON.stringify(payload, null, 2));
+            console.log('Token expira:', new Date(payload.exp * 1000).toLocaleString());
+            console.log('Authorities:', payload.authorities);
+            console.log('User ID:', payload.userId);
+            console.log('Nombre:', payload.nombre);
+          } catch (e) {
+            console.log('Error decodificando JWT:', e);
+          }
+        } else {
+          console.log('❌ NO HAY TOKEN EN ASYNCSTORAGE');
+        }
+      } catch (error) {
+        console.error('Error en debug auth:', error);
+      }
+    };
+
+    debugAuth();
   }, []);
 
   const searchTrips = async (params = {}) => {
@@ -45,11 +79,43 @@ export default function TripsScreen({ navigation }) {
   };
 
   const handleBookPress = (trip) => {
-    navigation.navigate('Purchase', { tripId: trip.id });
+    // ✅ CAMBIO PRINCIPAL: Pasar tanto tripId como tripData
+    navigation.navigate('Purchase', {
+      tripId: trip.id,
+      tripData: trip  // ← Esto es lo que necesitaba agregar
+    });
   };
 
   const handleRefresh = () => {
     searchTrips(currentParams);
+  };
+
+  // Función de debug manual
+  const debugJWT = async () => {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const userData = await AsyncStorage.getItem('user_data');
+
+      console.log('🔑 TOKEN COMPLETO:', token);
+      console.log('👤 USER DATA:', userData);
+
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        console.log('📄 PAYLOAD:', JSON.stringify(payload, null, 2));
+
+        Alert.alert('JWT Info', `
+Usuario: ${payload.nombre}
+ID: ${payload.userId}
+Rol: ${payload.authorities?.[0]}
+Expira: ${new Date(payload.exp * 1000).toLocaleString()}
+        `.trim());
+      } else {
+        Alert.alert('Error', 'No se encontró token JWT');
+      }
+    } catch (error) {
+      console.error('Error en debugJWT:', error);
+      Alert.alert('Error', 'Error al leer JWT: ' + error.message);
+    }
   };
 
   const renderTrip = ({ item }) => (
@@ -95,7 +161,24 @@ export default function TripsScreen({ navigation }) {
             />
           ) : null
         }
+        ListHeaderComponent={
+          // Botón de debug en la parte superior de la lista
+          <TouchableOpacity
+            style={styles.debugButtonTop}
+            onPress={debugJWT}
+          >
+            <Text style={styles.debugButtonText}>🔍 DEBUG JWT</Text>
+          </TouchableOpacity>
+        }
       />
+
+      {/* Botón de debug flotante en la esquina inferior */}
+      <TouchableOpacity
+        style={styles.debugButtonFloat}
+        onPress={debugJWT}
+      >
+        <Text style={styles.debugButtonText}>🔍</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -119,8 +202,41 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#000',
   },
-  filterButton: {
-    padding: 8,
+  debugButton: {
+    backgroundColor: '#ff6b6b',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  debugButtonTop: {
+    backgroundColor: '#ff6b6b',
+    padding: 12,
+    borderRadius: 8,
+    margin: 16,
+    alignItems: 'center',
+  },
+  debugButtonFloat: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: '#ff6b6b',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  debugButtonText: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: 'bold',
   },
   listContainer: {
     padding: 16,

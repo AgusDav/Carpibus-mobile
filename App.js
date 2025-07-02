@@ -5,9 +5,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-// PayPal Provider oficial
-import { PayPalScriptProvider } from '@paypal/react-paypal-js';
-
 // Context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 
@@ -23,6 +20,7 @@ import PurchaseScreen from './src/screens/PurchaseScreen';
 import ConfigurationScreen from './src/screens/ConfigurationScreen';
 import HelpScreen from './src/screens/HelpScreen';
 import AboutScreen from './src/screens/AboutScreen';
+import PayPalNativePayment from './src/components/PayPalNativePayment';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -122,6 +120,13 @@ function MainNavigator() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="PayPalNativePayment"
+        component={PayPalNativePayment}
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack.Navigator>
   );
 }
@@ -146,11 +151,9 @@ function AppContent() {
 
 export default function App() {
   return (
-    <PayPalScriptProvider options={initialPayPalOptions}>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </PayPalScriptProvider>
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

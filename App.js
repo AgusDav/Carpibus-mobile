@@ -23,6 +23,8 @@ import HelpScreen from './src/screens/HelpScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import PayPalNativePayment from './src/components/PayPalNativePayment';
 
+import PayPalWebView from './src/components/PayPalWebView';
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -146,6 +148,15 @@ function MainStack() {
           title: 'Acerca de',
           headerStyle: { backgroundColor: '#2c5530' },
           headerTintColor: '#fff',
+        }}
+      />
+      <Stack.Screen
+        name="PayPalWebView"
+        component={PayPalWebView}
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
+          title: 'Pago PayPal'
         }}
       />
     </Stack.Navigator>

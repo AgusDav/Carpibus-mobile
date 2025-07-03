@@ -224,12 +224,14 @@ const PayPalNativePayment = ({ route, navigation }) => {
           [
             {
               text: 'Ver Mis Pasajes',
-              onPress: () => navigation.navigate('Mis Pasajes'),
+              // CORREGIDO: Navegación correcta al TabNavigator
+              onPress: () => navigation.navigate('Home', { screen: 'Mis Pasajes' }),
               style: 'default'
             },
             {
               text: 'Buscar Más Viajes',
-              onPress: () => navigation.navigate('Viajes'),
+              // CORREGIDO: Navegación correcta al TabNavigator
+              onPress: () => navigation.navigate('Home', { screen: 'Viajes' }),
               style: 'cancel'
             }
           ]
@@ -296,7 +298,8 @@ const PayPalNativePayment = ({ route, navigation }) => {
                 [
                   {
                     text: 'Ver Mis Pasajes',
-                    onPress: () => navigation.navigate('Mis Pasajes')
+                    // CORREGIDO: Navegación correcta al TabNavigator
+                    onPress: () => navigation.navigate('Home', { screen: 'Mis Pasajes' })
                   }
                 ]
               );
@@ -395,22 +398,10 @@ const PayPalNativePayment = ({ route, navigation }) => {
               <>
                 <Icon name="logo-paypal" size={24} color="#FFF" />
                 <Text style={styles.paypalButtonText}>
-                  Pagar con PayPal (Recomendado)
+                  Pagar con PayPal
                 </Text>
               </>
             )}
-          </TouchableOpacity>
-
-          {/* Botón PayPal Navegador Externo (Alternativo) */}
-          <TouchableOpacity
-            style={[styles.paymentButton, styles.paypalExternalButton]}
-            onPress={procesarPagoExternalBrowser}
-            disabled={loading}
-          >
-            <Icon name="open-outline" size={24} color="#0070ba" />
-            <Text style={styles.paypalExternalButtonText}>
-              Abrir PayPal en Navegador
-            </Text>
           </TouchableOpacity>
 
           {/* Botón verificar pago (solo visible si hay orden activa) */}
@@ -442,20 +433,6 @@ const PayPalNativePayment = ({ route, navigation }) => {
 
         {/* Información adicional */}
         <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Información Importante</Text>
-          <Text style={styles.infoText}>
-            • El pago se procesa de forma segura a través de PayPal
-          </Text>
-          <Text style={styles.infoText}>
-            • Después de pagar en PayPal, regresa a la app y presiona "Verificar Pago"
-          </Text>
-          <Text style={styles.infoText}>
-            • Recibirás un email de confirmación después del pago
-          </Text>
-          <Text style={styles.infoText}>
-            • Tu pasaje estará disponible inmediatamente en "Mis Pasajes"
-          </Text>
-
           {paypalOrderId && (
             <View style={styles.orderInfo}>
               <Text style={styles.orderIdLabel}>ID de Orden PayPal:</Text>

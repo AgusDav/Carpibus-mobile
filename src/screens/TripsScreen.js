@@ -161,15 +161,6 @@ Expira: ${new Date(payload.exp * 1000).toLocaleString()}
             />
           ) : null
         }
-        ListHeaderComponent={
-          // Botón de debug en la parte superior de la lista
-          <TouchableOpacity
-            style={styles.debugButtonTop}
-            onPress={debugJWT}
-          >
-            <Text style={styles.debugButtonText}>🔍 DEBUG JWT</Text>
-          </TouchableOpacity>
-        }
       />
 
       {/* Botón de debug flotante en la esquina inferior */}

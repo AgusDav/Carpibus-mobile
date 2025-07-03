@@ -1,4 +1,4 @@
-// src/components/PayPalNativePayment.js - Solución con WebView
+// src/components/PayPalNativePayment.js - Versión corregida con información completa del ómnibus
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -26,9 +26,98 @@ const PayPalNativePayment = ({ route, navigation }) => {
       tripId,
       asientoSeleccionado,
       user: user?.id,
+      tripDetail,
       precios
     });
   }, []);
+
+  // Funciones auxiliares para formateo
+  const formatDate = (dateInput) => {
+    if (!dateInput) return '';
+
+    try {
+      // Si es un LocalDateTime, extraer solo la fecha
+      if (typeof dateInput === 'string' && dateInput.includes('T')) {
+        const datePart = dateInput.split('T')[0]; // "2024-01-15T10:30:00" -> "2024-01-15"
+        const date = new Date(datePart + 'T00:00:00'); // Evitar problemas de zona horaria
+        if (isNaN(date.getTime())) return dateInput;
+
+        return date.toLocaleDateString('es-ES', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      }
+
+      // Si es solo fecha (LocalDate)
+      if (typeof dateInput === 'string' && dateInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const date = new Date(dateInput + 'T00:00:00');
+        if (isNaN(date.getTime())) return dateInput;
+
+        return date.toLocaleDateString('es-ES', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      }
+
+      // Intentar como fecha normal
+      const date = new Date(dateInput);
+      if (isNaN(date.getTime())) return dateInput;
+
+      return date.toLocaleDateString('es-ES', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch {
+      return dateInput;
+    }
+  };
+
+  const formatTime = (timeInput) => {
+    if (!timeInput) return '';
+
+    try {
+      // Si es un LocalDateTime, extraer solo la hora
+      if (typeof timeInput === 'string' && timeInput.includes('T')) {
+        const timePart = timeInput.split('T')[1]; // "2024-01-15T10:30:00" -> "10:30:00"
+        return timePart ? timePart.substring(0, 5) : ''; // "10:30:00" -> "10:30"
+      }
+
+      // Si es solo hora (LocalTime) como "10:30:00" o "10:30"
+      if (typeof timeInput === 'string') {
+        // Si ya tiene formato HH:MM, devolverlo tal como está
+        if (timeInput.match(/^\d{1,2}:\d{2}$/)) {
+          return timeInput;
+        }
+        // Si tiene formato HH:MM:SS, quitar los segundos
+        if (timeInput.match(/^\d{1,2}:\d{2}:\d{2}$/)) {
+          return timeInput.substring(0, 5);
+        }
+        // Si es más largo, intentar extraer los primeros 5 caracteres
+        if (timeInput.length >= 5) {
+          return timeInput.substring(0, 5);
+        }
+        return timeInput;
+      }
+
+      // Si es un objeto Date
+      if (timeInput instanceof Date) {
+        return timeInput.toLocaleTimeString('es-ES', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+
+      return timeInput;
+    } catch {
+      return timeInput?.toString() || '';
+    }
+  };
 
   // Registrar la compra en tu backend después del pago exitoso
   const registrarCompraEnBackend = async (paypalTransactionId) => {
@@ -44,7 +133,6 @@ const PayPalNativePayment = ({ route, navigation }) => {
 
       console.log('Datos de compra:', datosCompra);
 
-      // Usar el endpoint correcto para compra individual
       const response = await apiClient.post('/api/vendedor/pasajes/comprar', datosCompra, true);
 
       console.log('✅ Compra registrada exitosamente:', response);
@@ -84,107 +172,10 @@ const PayPalNativePayment = ({ route, navigation }) => {
     }
   };
 
-  // Función principal para procesar el pago con PayPal Web
-  const procesarPagoPayPal = async () => {
-    setLoading(true);
-
-    try {
-      // 1. Crear orden en PayPal
-      const orderData = await crearOrdenPayPal();
-      setPaypalOrderId(orderData.id);
-
-      // 2. Construir URL de PayPal para sandbox
-      const paypalUrl = `https://www.sandbox.paypal.com/checkoutnow?token=${orderData.id}`;
-
-      console.log('🌐 Navegando a PayPal WebView:', paypalUrl);
-
-      // 3. Navegar al WebView de PayPal
-      navigation.navigate('PayPalWebView', {
-        paypalUrl,
-        orderId: orderData.id,
-        onPaymentSuccess: (orderId) => {
-          console.log('✅ Payment success callback:', orderId);
-          setPaypalOrderId(orderId);
-          // Automáticamente verificar el pago después del éxito
-          setTimeout(() => {
-            verificarPago();
-          }, 1000);
-        },
-        onPaymentCancel: () => {
-          console.log('❌ Payment cancelled callback');
-          Alert.alert('Pago Cancelado', 'El pago fue cancelado por el usuario.');
-          setPaypalOrderId(null);
-        }
-      });
-
-    } catch (error) {
-      console.error('Error en procesarPagoPayPal:', error);
-      Alert.alert('Error', error.message || 'No se pudo iniciar el pago');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // También agregar una opción para usar el navegador externo como fallback
-  const procesarPagoExternalBrowser = async () => {
-    setLoading(true);
-
-    try {
-      // 1. Crear orden en PayPal
-      const orderData = await crearOrdenPayPal();
-      setPaypalOrderId(orderData.id);
-
-      // 2. Construir URL de PayPal para sandbox
-      const paypalUrl = `https://www.sandbox.paypal.com/checkoutnow?token=${orderData.id}`;
-
-      console.log('🌐 Abriendo PayPal en navegador externo:', paypalUrl);
-
-      // 3. Intentar abrir en navegador externo (método mejorado)
-      try {
-        await Linking.openURL(paypalUrl);
-        console.log('✅ PayPal URL abierta exitosamente');
-
-        Alert.alert(
-          'PayPal Abierto',
-          'PayPal se ha abierto en tu navegador. Después de completar el pago, regresa a la app y presiona "Verificar Pago".',
-          [{ text: 'Entendido' }]
-        );
-      } catch (linkingError) {
-        console.error('❌ Error opening PayPal URL:', linkingError);
-
-        // Fallback: mostrar URL para copiar manualmente
-        Alert.alert(
-          'Abrir PayPal Manualmente',
-          `No se pudo abrir PayPal automáticamente.\n\nURL: ${paypalUrl}`,
-          [
-            {
-              text: 'Copiar URL',
-              onPress: () => {
-                console.log('URL para copiar:', paypalUrl);
-                Alert.alert(
-                  'URL para PayPal',
-                  'Copia esta URL y ábrela en tu navegador para completar el pago.',
-                  [{ text: 'OK' }]
-                );
-              }
-            },
-            { text: 'Cancelar', style: 'cancel' }
-          ]
-        );
-      }
-
-    } catch (error) {
-      console.error('Error en procesarPagoExternalBrowser:', error);
-      Alert.alert('Error', error.message || 'No se pudo iniciar el pago');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Verificar el estado del pago después de que el usuario regrese
+  // Verificar el estado del pago en PayPal
   const verificarPago = async () => {
     if (!paypalOrderId) {
-      Alert.alert('Error', 'No hay una orden de PayPal activa');
+      Alert.alert('Error', 'No hay una orden PayPal para verificar');
       return;
     }
 
@@ -193,17 +184,14 @@ const PayPalNativePayment = ({ route, navigation }) => {
     try {
       console.log('🔍 Verificando pago para orden:', paypalOrderId);
 
-      // Capturar el pago usando tu backend
-      const captureResponse = await apiClient.post(`/api/paypal/orders/${paypalOrderId}/capture`, {}, true);
-
-      console.log('📨 Respuesta de captura:', captureResponse);
+      const captureResponse = await apiClient.get(`/api/paypal/orders/${paypalOrderId}/capture`, true);
+      console.log('📦 Respuesta de captura:', captureResponse);
 
       if (captureResponse.status === 'COMPLETED') {
-        // Pago exitoso - extraer el ID de la transacción
-        let captureId = null;
+        console.log('✅ Pago verificado como completado');
 
-        if (captureResponse.purchase_units &&
-            captureResponse.purchase_units[0]?.payments?.captures?.[0]?.id) {
+        let captureId = null;
+        if (captureResponse.purchase_units?.[0]?.payments?.captures?.[0]?.id) {
           captureId = captureResponse.purchase_units[0].payments.captures[0].id;
         }
 
@@ -214,34 +202,28 @@ const PayPalNativePayment = ({ route, navigation }) => {
 
         console.log('💳 ID de captura obtenido:', captureId);
 
-        // Registrar compra en tu backend
         await registrarCompraEnBackend(captureId);
 
-        // Mostrar confirmación de éxito
         Alert.alert(
           '¡Pago Exitoso! 🎉',
-          `Tu pasaje ha sido comprado correctamente.\n\nViaje: ${tripDetail.ciudadOrigen} → ${tripDetail.ciudadDestino}\nAsiento: ${asientoSeleccionado}\nPrecio: $${precios.precioFinal.toFixed(2)}`,
+          `Tu pasaje ha sido comprado correctamente.\n\nViaje: ${tripDetail?.ciudadOrigen || tripDetail?.origenNombre} → ${tripDetail?.ciudadDestino || tripDetail?.destinoNombre}\nAsiento: ${asientoSeleccionado}\nPrecio: $${precios.precioFinal.toFixed(2)}`,
           [
             {
               text: 'Ver Mis Pasajes',
-              // CORREGIDO: Navegación correcta al TabNavigator
               onPress: () => navigation.navigate('Home', { screen: 'Mis Pasajes' }),
               style: 'default'
             },
             {
               text: 'Buscar Más Viajes',
-              // CORREGIDO: Navegación correcta al TabNavigator
               onPress: () => navigation.navigate('Home', { screen: 'Viajes' }),
               style: 'cancel'
             }
           ]
         );
 
-        // Limpiar el ID de la orden
         setPaypalOrderId(null);
 
       } else {
-        // Pago no completado
         Alert.alert(
           'Pago Pendiente',
           'El pago aún no ha sido completado. Si ya realizaste el pago, espera unos momentos y vuelve a verificar.',
@@ -277,6 +259,43 @@ const PayPalNativePayment = ({ route, navigation }) => {
     }
   };
 
+  // Función principal para procesar el pago con PayPal Web
+  const procesarPagoPayPal = async () => {
+    setLoading(true);
+
+    try {
+      const orderData = await crearOrdenPayPal();
+      setPaypalOrderId(orderData.id);
+
+      const paypalUrl = `https://www.sandbox.paypal.com/checkoutnow?token=${orderData.id}`;
+
+      console.log('🌐 Navegando a PayPal WebView:', paypalUrl);
+
+      navigation.navigate('PayPalWebView', {
+        paypalUrl,
+        orderId: orderData.id,
+        onPaymentSuccess: (orderId) => {
+          console.log('✅ Payment success callback:', orderId);
+          setPaypalOrderId(orderId);
+          setTimeout(() => {
+            verificarPago();
+          }, 1000);
+        },
+        onPaymentCancel: () => {
+          console.log('❌ Payment cancelled callback');
+          Alert.alert('Pago Cancelado', 'El pago fue cancelado por el usuario.');
+          setPaypalOrderId(null);
+        }
+      });
+
+    } catch (error) {
+      console.error('Error en procesarPagoPayPal:', error);
+      Alert.alert('Error', error.message || 'No se pudo iniciar el pago');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Pago simulado para testing
   const pagoSimulado = async () => {
     Alert.alert(
@@ -289,16 +308,14 @@ const PayPalNativePayment = ({ route, navigation }) => {
           onPress: async () => {
             setLoading(true);
             try {
-              // Simular transacción con ID ficticio
               await registrarCompraEnBackend(`SIM_${Date.now()}`);
 
               Alert.alert(
                 '¡Compra Simulada Exitosa! 🎉',
-                `Tu pasaje ha sido comprado (simulado).\n\nViaje: ${tripDetail.ciudadOrigen} → ${tripDetail.ciudadDestino}\nAsiento: ${asientoSeleccionado}\nPrecio: $${precios.precioFinal.toFixed(2)}`,
+                `Tu pasaje ha sido comprado (simulado).\n\nViaje: ${tripDetail?.ciudadOrigen || tripDetail?.origenNombre} → ${tripDetail?.ciudadDestino || tripDetail?.destinoNombre}\nAsiento: ${asientoSeleccionado}\nPrecio: $${precios.precioFinal.toFixed(2)}`,
                 [
                   {
                     text: 'Ver Mis Pasajes',
-                    // CORREGIDO: Navegación correcta al TabNavigator
                     onPress: () => navigation.navigate('Home', { screen: 'Mis Pasajes' })
                   }
                 ]
@@ -334,26 +351,64 @@ const PayPalNativePayment = ({ route, navigation }) => {
 
           <View style={styles.tripInfo}>
             <View style={styles.routeInfo}>
-              <Text style={styles.cityText}>{tripDetail?.ciudadOrigen}</Text>
+              <Text style={styles.cityText}>
+                {tripDetail?.ciudadOrigen || tripDetail?.origenNombre || 'Origen'}
+              </Text>
               <Icon name="arrow-forward" size={20} color="#666" />
-              <Text style={styles.cityText}>{tripDetail?.ciudadDestino}</Text>
+              <Text style={styles.cityText}>
+                {tripDetail?.ciudadDestino || tripDetail?.destinoNombre || 'Destino'}
+              </Text>
             </View>
 
             <View style={styles.detailRow}>
+              <Icon name="calendar-outline" size={16} color="#666" />
               <Text style={styles.detailLabel}>Fecha:</Text>
               <Text style={styles.detailValue}>
-                {new Date(tripDetail?.fechaHoraSalida).toLocaleDateString()}
+                {formatDate(
+                  tripDetail?.fechaHoraSalida ||
+                  tripDetail?.fecha ||
+                  tripDetail?.fechaSalida
+                )}
               </Text>
             </View>
 
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Hora:</Text>
+              <Icon name="time-outline" size={16} color="#666" />
+              <Text style={styles.detailLabel}>Hora salida:</Text>
               <Text style={styles.detailValue}>
-                {new Date(tripDetail?.fechaHoraSalida).toLocaleTimeString()}
+                {formatTime(
+                  tripDetail?.fechaHoraSalida ||
+                  tripDetail?.horaSalida ||
+                  tripDetail?.fechaSalida
+                )}
               </Text>
             </View>
 
             <View style={styles.detailRow}>
+              <Icon name="time-outline" size={16} color="#666" />
+              <Text style={styles.detailLabel}>Hora llegada:</Text>
+              <Text style={styles.detailValue}>
+                {formatTime(
+                  tripDetail?.fechaHoraLlegada ||
+                  tripDetail?.horaLlegada ||
+                  tripDetail?.fechaLlegada
+                ) || 'No disponible'}
+              </Text>
+            </View>
+
+            {/* Información del ómnibus */}
+            {(tripDetail?.omnibusMatricula || tripDetail?.matriculaOmnibus) && (
+              <View style={styles.detailRow}>
+                <Icon name="bus-outline" size={16} color="#666" />
+                <Text style={styles.detailLabel}>Matrícula:</Text>
+                <Text style={styles.detailValue}>
+                  {tripDetail?.omnibusMatricula || tripDetail?.matriculaOmnibus}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.detailRow}>
+              <Icon name="person-outline" size={16} color="#666" />
               <Text style={styles.detailLabel}>Asiento:</Text>
               <Text style={styles.detailValue}>{asientoSeleccionado}</Text>
             </View>
@@ -365,7 +420,7 @@ const PayPalNativePayment = ({ route, navigation }) => {
           <Text style={styles.sectionTitle}>Desglose del Precio</Text>
 
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Precio base:</Text>
+            <Text style={styles.priceLabel}>Precio base</Text>
             <Text style={styles.priceValue}>${precios.precioBase.toFixed(2)}</Text>
           </View>
 
@@ -377,7 +432,7 @@ const PayPalNativePayment = ({ route, navigation }) => {
           )}
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total a pagar:</Text>
+            <Text style={styles.totalLabel}>Total a pagar</Text>
             <Text style={styles.totalValue}>${precios.precioFinal.toFixed(2)}</Text>
           </View>
         </View>
@@ -393,70 +448,63 @@ const PayPalNativePayment = ({ route, navigation }) => {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator size="small" color="#FFF" />
+              <ActivityIndicator color="#fff" size="small" />
             ) : (
               <>
-                <Icon name="logo-paypal" size={24} color="#FFF" />
-                <Text style={styles.paypalButtonText}>
-                  Pagar con PayPal
-                </Text>
+                <Icon name="logo-paypal" size={20} color="#fff" />
+                <Text style={styles.paymentButtonText}>Pagar con PayPal</Text>
               </>
             )}
           </TouchableOpacity>
 
-          {/* Botón verificar pago (solo visible si hay orden activa) */}
+          {/* Botón de verificar pago (si hay una orden pendiente) */}
           {paypalOrderId && (
             <TouchableOpacity
               style={[styles.paymentButton, styles.verifyButton]}
               onPress={verificarPago}
               disabled={loading}
             >
-              <Icon name="checkmark-circle" size={24} color="#2c5530" />
-              <Text style={styles.verifyButtonText}>
-                Verificar Pago
-              </Text>
+              {loading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Icon name="checkmark-circle-outline" size={20} color="#fff" />
+                  <Text style={styles.paymentButtonText}>Verificar Pago</Text>
+                </>
+              )}
             </TouchableOpacity>
           )}
 
-          {/* Botón pago simulado (solo para desarrollo) */}
+          {/* Botón de pago simulado para testing */}
           <TouchableOpacity
             style={[styles.paymentButton, styles.simulatedButton]}
             onPress={pagoSimulado}
             disabled={loading}
           >
-            <Icon name="flask" size={24} color="#666" />
-            <Text style={styles.simulatedButtonText}>
-              Pago Simulado (Testing)
-            </Text>
+            {loading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <Icon name="flask-outline" size={20} color="#fff" />
+                <Text style={styles.paymentButtonText}>Pago Simulado (Testing)</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
 
         {/* Información adicional */}
         <View style={styles.infoCard}>
-          {paypalOrderId && (
-            <View style={styles.orderInfo}>
-              <Text style={styles.orderIdLabel}>ID de Orden PayPal:</Text>
-              <Text style={styles.orderIdValue}>{paypalOrderId}</Text>
-            </View>
-          )}
+          <Text style={styles.infoTitle}>Información Importante</Text>
+          <Text style={styles.infoText}>
+            • Tu asiento quedará reservado durante el proceso de pago{'\n'}
+            • El pasaje será enviado por email tras confirmar el pago{'\n'}
+            • Presenta tu pasaje al conductor antes del viaje{'\n'}
+            • Las cancelaciones deben realizarse con al menos 2 horas de anticipación
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
-};
-
-const newStyles = {
-  paypalExternalButton: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#0070ba',
-  },
-  paypalExternalButtonText: {
-    color: '#0070ba',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
 };
 
 const styles = StyleSheet.create({
@@ -479,7 +527,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#333',
   },
   placeholder: {
@@ -494,79 +542,65 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  priceCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  paymentCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  infoCard: {
-    backgroundColor: '#e8f4fd',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    shadowRadius: 2,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#333',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   tripInfo: {
-    marginTop: 8,
+    gap: 12,
   },
   routeInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+    gap: 12,
   },
   cityText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
-    marginHorizontal: 8,
+    color: '#2c5530',
   },
   detailRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+    alignItems: 'center',
+    gap: 8,
   },
   detailLabel: {
     fontSize: 14,
     color: '#666',
+    minWidth: 100,
   },
   detailValue: {
     fontSize: 14,
     fontWeight: '500',
     color: '#333',
+    flex: 1,
+  },
+  priceCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    alignItems: 'center',
+    paddingVertical: 8,
   },
   priceLabel: {
     fontSize: 14,
@@ -574,101 +608,88 @@ const styles = StyleSheet.create({
   },
   priceValue: {
     fontSize: 14,
+    fontWeight: '500',
     color: '#333',
   },
   discountLabel: {
     fontSize: 14,
-    color: '#e74c3c',
+    color: '#16a34a',
   },
   discountValue: {
     fontSize: 14,
-    color: '#e74c3c',
     fontWeight: '500',
+    color: '#16a34a',
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
     marginTop: 8,
-    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
   },
   totalLabel: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#333',
   },
   totalValue: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#2c5530',
+  },
+  paymentCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   paymentButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     marginBottom: 12,
+    gap: 8,
   },
   paypalButton: {
     backgroundColor: '#0070ba',
   },
-  paypalButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
   verifyButton: {
-    backgroundColor: '#e8f5e8',
-    borderWidth: 1,
-    borderColor: '#2c5530',
-  },
-  verifyButtonText: {
-    color: '#2c5530',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+    backgroundColor: '#16a34a',
   },
   simulatedButton: {
-    backgroundColor: '#f8f9fa',
-    borderWidth: 1,
-    borderColor: '#ddd',
+    backgroundColor: '#6b7280',
   },
-  simulatedButtonText: {
-    color: '#666',
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 8,
+  paymentButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  infoCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
   },
   infoTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2c5530',
+    fontWeight: '600',
+    color: '#333',
     marginBottom: 8,
   },
   infoText: {
     fontSize: 14,
-    color: '#2c5530',
-    marginBottom: 4,
-  },
-  orderInfo: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-  },
-  orderIdLabel: {
-    fontSize: 12,
     color: '#666',
-    marginBottom: 4,
-  },
-  orderIdValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    lineHeight: 20,
   },
 });
 

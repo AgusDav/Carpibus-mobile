@@ -1,4 +1,4 @@
-// PurchaseScreen.js - Actualizado para usar PayPal nativo
+// src/screens/PurchaseScreen.js - Actualizado con navegación mejorada a PayPal
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -79,7 +79,7 @@ export default function PurchaseScreen({ route, navigation }) {
       return;
     }
 
-    // Navegar al componente PayPal nativo
+    // Navegar al componente PayPal nativo con todos los datos necesarios
     navigation.navigate('PayPalNativePayment', {
       tripId,
       asientoSeleccionado,
@@ -89,91 +89,46 @@ export default function PurchaseScreen({ route, navigation }) {
     });
   };
 
-  // Opción de pago simulado para testing
-  const handleSimulatedPayment = async () => {
-    if (!asientoSeleccionado) {
-      Alert.alert('Error', 'Por favor selecciona un asiento');
-      return;
-    }
+  // Función para renderizar la grilla de asientos
+  const renderSeatGrid = () => {
+    const totalSeats = tripDetail?.busAsignado?.capacidad || 40;
+    const seats = [];
 
-    Alert.alert(
-      'Pago Simulado',
-      '¿Confirmas la compra? (Pago simulado para testing)',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Confirmar', onPress: procesarPagoSimulado }
-      ]
-    );
-  };
+    for (let i = 1; i <= totalSeats; i++) {
+      const isOccupied = asientosOcupados.includes(i);
+      const isSelected = asientoSeleccionado === i;
 
-  const procesarPagoSimulado = async () => {
-    try {
-      const compraData = {
-        viajeId: parseInt(tripId),
-        clienteId: user.id,
-        numeroAsiento: asientoSeleccionado
-        // Sin paypalTransactionId para pago simulado
-      };
-
-      const response = await apiClient.post('/vendedor/pasajes/comprar', compraData, true);
-
-      Alert.alert('¡Éxito!', 'Tu pasaje ha sido comprado exitosamente (pago simulado)');
-      navigation.navigate('Mis Pasajes');
-
-    } catch (error) {
-      console.error('Error al comprar pasaje:', error);
-      Alert.alert(
-        'Error en la compra',
-        error.response?.data?.message || error.message || 'No se pudo procesar la compra. Intenta nuevamente.'
+      seats.push(
+        <TouchableOpacity
+          key={i}
+          style={[
+            styles.seat,
+            isOccupied && styles.seatOccupied,
+            isSelected && styles.seatSelected,
+          ]}
+          onPress={() => !isOccupied && setAsientoSeleccionado(i)}
+          disabled={isOccupied}
+        >
+          <Text style={[
+            styles.seatText,
+            isOccupied && styles.seatTextOccupied,
+            isSelected && styles.seatTextSelected,
+          ]}>
+            {i}
+          </Text>
+        </TouchableOpacity>
       );
     }
-  };
 
-  const renderAsiento = (numeroAsiento) => {
-    const isOcupado = asientosOcupados.includes(numeroAsiento);
-    const isSeleccionado = asientoSeleccionado === numeroAsiento;
-
-    return (
-      <TouchableOpacity
-        key={numeroAsiento}
-        style={[
-          styles.asiento,
-          isOcupado && styles.asientoOcupado,
-          isSeleccionado && styles.asientoSeleccionado,
-        ]}
-        disabled={isOcupado}
-        onPress={() => setAsientoSeleccionado(numeroAsiento)}
-      >
-        <Text style={[
-          styles.asientoText,
-          isOcupado && styles.asientoOcupadoText,
-          isSeleccionado && styles.asientoSeleccionadoText,
-        ]}>
-          {numeroAsiento}
-        </Text>
-      </TouchableOpacity>
-    );
+    return seats;
   };
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color="#2c5530" />
           <Text style={styles.loadingText}>Cargando información del viaje...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (!tripDetail) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>No se pudo cargar la información del viaje</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadTripData}>
-            <Text style={styles.retryButtonText}>Reintentar</Text>
-          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -182,104 +137,123 @@ export default function PurchaseScreen({ route, navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
           <Icon name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Comprar Pasaje</Text>
+        <Text style={styles.headerTitle}>Seleccionar Asiento</Text>
+        <View style={styles.placeholder} />
       </View>
 
       <ScrollView style={styles.content}>
         {/* Información del viaje */}
-        <View style={styles.tripInfo}>
-          <Text style={styles.tripTitle}>
-            {tripDetail.origenNombre} → {tripDetail.destinoNombre}
-          </Text>
-          <Text style={styles.tripDate}>
-            {new Date(tripDetail.fecha).toLocaleDateString()}
-          </Text>
-          <Text style={styles.tripTime}>
-            Salida: {tripDetail.horaSalida}
-          </Text>
-          <Text style={styles.tripPrice}>Precio: ${tripDetail.precio}</Text>
+        <View style={styles.tripInfoCard}>
+          <Text style={styles.sectionTitle}>Información del Viaje</Text>
+
+          <View style={styles.routeContainer}>
+            <Text style={styles.cityText}>{tripDetail?.ciudadOrigen}</Text>
+            <Icon name="arrow-forward" size={20} color="#666" style={styles.arrowIcon} />
+            <Text style={styles.cityText}>{tripDetail?.ciudadDestino}</Text>
+          </View>
+
+          <View style={styles.detailsContainer}>
+            <View style={styles.detailRow}>
+              <Icon name="calendar" size={16} color="#666" />
+              <Text style={styles.detailText}>
+                {new Date(tripDetail?.fechaHoraSalida).toLocaleDateString()}
+              </Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Icon name="time" size={16} color="#666" />
+              <Text style={styles.detailText}>
+                {new Date(tripDetail?.fechaHoraSalida).toLocaleTimeString()}
+              </Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Icon name="bus" size={16} color="#666" />
+              <Text style={styles.detailText}>
+                {tripDetail?.busAsignado?.modelo} - {tripDetail?.busAsignado?.patente}
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* Selección de asientos */}
-        <View style={styles.seatsSection}>
-          <Text style={styles.sectionTitle}>Selecciona tu asiento</Text>
-          <View style={styles.seatsContainer}>
-            {Array.from({ length: tripDetail.capacidadOmnibus }, (_, i) => i + 1).map(renderAsiento)}
-          </View>
+        <View style={styles.seatsCard}>
+          <Text style={styles.sectionTitle}>Selecciona tu Asiento</Text>
 
           {/* Leyenda */}
           <View style={styles.legend}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendIcon, styles.asientoDisponible]} />
+              <View style={[styles.legendSeat, styles.seatAvailable]} />
               <Text style={styles.legendText}>Disponible</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendIcon, styles.asientoOcupado]} />
+              <View style={[styles.legendSeat, styles.seatOccupied]} />
               <Text style={styles.legendText}>Ocupado</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendIcon, styles.asientoSeleccionado]} />
+              <View style={[styles.legendSeat, styles.seatSelected]} />
               <Text style={styles.legendText}>Seleccionado</Text>
             </View>
+          </View>
+
+          {/* Grilla de asientos */}
+          <View style={styles.seatGrid}>
+            {renderSeatGrid()}
           </View>
         </View>
 
         {/* Resumen de precio */}
-        {asientoSeleccionado && (
-          <View style={styles.summary}>
-            <Text style={styles.summaryTitle}>Resumen de compra</Text>
-            <Text style={styles.summaryItem}>Asiento: {asientoSeleccionado}</Text>
-            <Text style={styles.summaryItem}>Precio base: ${precios.precioBase.toFixed(2)}</Text>
+        <View style={styles.priceCard}>
+          <Text style={styles.sectionTitle}>Resumen del Precio</Text>
 
-            {precios.tieneDescuento && (
-              <Text style={[styles.summaryItem, styles.discountText]}>
-                Descuento ({user?.tipoCliente}): -${precios.descuento.toFixed(2)}
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>Precio base:</Text>
+            <Text style={styles.priceValue}>${precios.precioBase.toFixed(2)}</Text>
+          </View>
+
+          {precios.tieneDescuento && (
+            <View style={styles.priceRow}>
+              <Text style={styles.discountLabel}>
+                Descuento ({user?.tipoCliente}):
               </Text>
-            )}
-
-            <Text style={styles.summaryTotal}>
-              Total: ${precios.precioFinal.toFixed(2)}
-            </Text>
-          </View>
-        )}
-
-        {/* Opciones de pago */}
-        {asientoSeleccionado && (
-          <View style={styles.paymentOptions}>
-            <Text style={styles.sectionTitle}>Métodos de Pago</Text>
-
-            <TouchableOpacity
-              style={styles.paypalButton}
-              onPress={handleContinuarPago}
-            >
-              <Icon name="logo-paypal" size={24} color="#fff" />
-              <Text style={styles.paypalButtonText}>Pagar con PayPal</Text>
-            </TouchableOpacity>
-
-            <View style={styles.divider}>
-              <Text style={styles.dividerText}>O</Text>
+              <Text style={styles.discountValue}>-${precios.descuento.toFixed(2)}</Text>
             </View>
+          )}
 
-            <TouchableOpacity
-              style={styles.simulatedButton}
-              onPress={handleSimulatedPayment}
-            >
-              <Icon name="card" size={20} color="#666" />
-              <Text style={styles.simulatedButtonText}>Pago Simulado (Testing)</Text>
-            </TouchableOpacity>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Total a pagar:</Text>
+            <Text style={styles.totalValue}>${precios.precioFinal.toFixed(2)}</Text>
           </View>
-        )}
+        </View>
       </ScrollView>
 
-      {/* Botón de acción flotante */}
-      {!asientoSeleccionado && (
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Selecciona un asiento para continuar</Text>
-        </View>
-      )}
+      {/* Botón de continuar */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[
+            styles.continueButton,
+            !asientoSeleccionado && styles.continueButtonDisabled
+          ]}
+          onPress={handleContinuarPago}
+          disabled={!asientoSeleccionado}
+        >
+          <Text style={[
+            styles.continueButtonText,
+            !asientoSeleccionado && styles.continueButtonTextDisabled
+          ]}>
+            {asientoSeleccionado
+              ? `Continuar con Asiento ${asientoSeleccionado}`
+              : 'Selecciona un asiento'
+            }
+          </Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -287,207 +261,28 @@ export default function PurchaseScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f5f5f5',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
+  backButton: {
+    padding: 8,
+  },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 16,
+    fontWeight: 'bold',
     color: '#333',
   },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-  tripInfo: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  tripTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  tripDate: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 4,
-  },
-  tripTime: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 8,
-  },
-  tripPrice: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#007AFF',
-  },
-  seatsSection: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 16,
-  },
-  seatsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  asiento: {
-    width: '18%',
-    aspectRatio: 1,
-    backgroundColor: '#e3f2fd',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-    borderWidth: 2,
-    borderColor: '#90caf9',
-  },
-  asientoOcupado: {
-    backgroundColor: '#ffcdd2',
-    borderColor: '#ef9a9a',
-  },
-  asientoSeleccionado: {
-    backgroundColor: '#c8e6c9',
-    borderColor: '#4caf50',
-  },
-  asientoDisponible: {
-    backgroundColor: '#e3f2fd',
-    borderColor: '#90caf9',
-  },
-  asientoText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1976d2',
-  },
-  asientoOcupadoText: {
-    color: '#c62828',
-  },
-  asientoSeleccionadoText: {
-    color: '#2e7d32',
-  },
-  legend: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  legendIcon: {
-    width: 16,
-    height: 16,
-    borderRadius: 4,
-    marginRight: 8,
-    borderWidth: 1,
-  },
-  legendText: {
-    fontSize: 12,
-    color: '#666',
-  },
-  summary: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  summaryItem: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  discountText: {
-    color: '#4CAF50',
-  },
-  summaryTotal: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#007AFF',
-    marginTop: 8,
-  },
-  paymentOptions: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  paypalButton: {
-    backgroundColor: '#0070ba',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
-    gap: 8,
-    marginBottom: 16,
-  },
-  paypalButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  divider: {
-    alignItems: 'center',
-    marginVertical: 16,
-  },
-  dividerText: {
-    fontSize: 14,
-    color: '#666',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-  },
-  simulatedButton: {
-    backgroundColor: '#f8f9fa',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    gap: 8,
-  },
-  simulatedButtonText: {
-    color: '#666',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  footer: {
-    padding: 16,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    alignItems: 'center',
-  },
-  footerText: {
-    color: '#666',
-    fontSize: 14,
+  placeholder: {
+    width: 40,
   },
   loadingContainer: {
     flex: 1,
@@ -499,26 +294,199 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-  errorContainer: {
+  content: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 16,
   },
-  errorText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+  tripInfoCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  seatsCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  priceCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 12,
+  },
+  routeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 16,
   },
-  retryButton: {
-    backgroundColor: '#007AFF',
-    padding: 12,
+  cityText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  arrowIcon: {
+    marginHorizontal: 12,
+  },
+  detailsContainer: {
+    marginTop: 8,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  detailText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 8,
+  },
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f8f9fa',
     borderRadius: 8,
   },
-  retryButtonText: {
-    color: '#fff',
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  legendSeat: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    marginRight: 4,
+  },
+  legendText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  seatGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  seat: {
+    width: '18%',
+    aspectRatio: 1,
+    backgroundColor: '#e8f5e8',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#c8e6c9',
+  },
+  seatAvailable: {
+    backgroundColor: '#e8f5e8',
+    borderColor: '#c8e6c9',
+  },
+  seatOccupied: {
+    backgroundColor: '#ffebee',
+    borderColor: '#ffcdd2',
+  },
+  seatSelected: {
+    backgroundColor: '#2c5530',
+    borderColor: '#2c5530',
+  },
+  seatText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
+    color: '#333',
+  },
+  seatTextOccupied: {
+    color: '#e53935',
+  },
+  seatTextSelected: {
+    color: '#fff',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  priceLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  priceValue: {
+    fontSize: 14,
+    color: '#333',
+  },
+  discountLabel: {
+    fontSize: 14,
+    color: '#e74c3c',
+  },
+  discountValue: {
+    fontSize: 14,
+    color: '#e74c3c',
+    fontWeight: '500',
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  totalValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2c5530',
+  },
+  footer: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  continueButton: {
+    backgroundColor: '#2c5530',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  continueButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  continueButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  continueButtonTextDisabled: {
+    color: '#999',
   },
 });

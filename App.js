@@ -1,3 +1,4 @@
+// App.js - Navegación actualizada para PayPal
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -25,13 +26,6 @@ import PayPalNativePayment from './src/components/PayPalNativePayment';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Configuración de PayPal - misma que en tu web
-const initialPayPalOptions = {
-  "client-id": "AclKeFueUT6hu_vNmKjHR4MEfn7vyF3J3mzk8DxkkM0y_Gc9DyD2250fCktw_Tt8h3Qu8--U8EDWEc7u",
-  currency: "USD",
-  intent: "capture",
-};
-
 function TabNavigator() {
   return (
     <Tab.Navigator
@@ -49,23 +43,36 @@ function TabNavigator() {
 
           return <Icon name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#2563eb',
+        tabBarActiveTintColor: '#2c5530',
         tabBarInactiveTintColor: 'gray',
         headerShown: false,
       })}
     >
-      <Tab.Screen name="Viajes" component={TripsScreen} />
-      <Tab.Screen name="Mis Pasajes" component={TicketsScreen} />
-      <Tab.Screen name="Perfil" component={ProfileScreen} />
+      <Tab.Screen
+        name="Viajes"
+        component={TripsScreen}
+        options={{ title: 'Buscar Viajes' }}
+      />
+      <Tab.Screen
+        name="Mis Pasajes"
+        component={TicketsScreen}
+        options={{ title: 'Mis Pasajes' }}
+      />
+      <Tab.Screen
+        name="Perfil"
+        component={ProfileScreen}
+        options={{ title: 'Mi Perfil' }}
+      />
     </Tab.Navigator>
   );
 }
 
-function AuthNavigator() {
+function AuthStack() {
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
+        animation: 'slide_from_right'
       }}
     >
       <Stack.Screen name="Login" component={LoginScreen} />
@@ -75,49 +82,31 @@ function AuthNavigator() {
   );
 }
 
-function MainNavigator() {
+function MainStack() {
   return (
-    <Stack.Navigator>
-      <Stack.Screen
-        name="Main"
-        component={TabNavigator}
-        options={{ headerShown: false }}
-      />
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right'
+      }}
+    >
+      <Stack.Screen name="Home" component={TabNavigator} />
       <Stack.Screen
         name="TripDetail"
         component={TripDetailScreen}
         options={{
-          title: 'Detalle del Viaje',
-          headerBackTitleVisible: false,
+          headerShown: true,
+          title: 'Detalles del Viaje',
+          headerStyle: { backgroundColor: '#2c5530' },
+          headerTintColor: '#fff',
         }}
       />
       <Stack.Screen
         name="Purchase"
         component={PurchaseScreen}
         options={{
-          headerShown: false, // PurchaseScreen maneja su propio header
-        }}
-      />
-      {/* Nuevas pantallas del perfil */}
-      <Stack.Screen
-        name="Configuration"
-        component={ConfigurationScreen}
-        options={{
           headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="Help"
-        component={HelpScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="About"
-        component={AboutScreen}
-        options={{
-          headerShown: false,
+          title: 'Comprar Pasaje'
         }}
       />
       <Stack.Screen
@@ -125,26 +114,58 @@ function MainNavigator() {
         component={PayPalNativePayment}
         options={{
           headerShown: false,
+          title: 'Pago con PayPal',
+          gestureEnabled: false, // Evitar que el usuario pueda volver con gestos durante el pago
+        }}
+      />
+      <Stack.Screen
+        name="Configuration"
+        component={ConfigurationScreen}
+        options={{
+          headerShown: true,
+          title: 'Configuración',
+          headerStyle: { backgroundColor: '#2c5530' },
+          headerTintColor: '#fff',
+        }}
+      />
+      <Stack.Screen
+        name="Help"
+        component={HelpScreen}
+        options={{
+          headerShown: true,
+          title: 'Ayuda',
+          headerStyle: { backgroundColor: '#2c5530' },
+          headerTintColor: '#fff',
+        }}
+      />
+      <Stack.Screen
+        name="About"
+        component={AboutScreen}
+        options={{
+          headerShown: true,
+          title: 'Acerca de',
+          headerStyle: { backgroundColor: '#2c5530' },
+          headerTintColor: '#fff',
         }}
       />
     </Stack.Navigator>
   );
 }
 
-function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+function AppNavigator() {
+  const { isAuthenticated, loading } = useAuth();
 
-  if (isLoading) {
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color="#2c5530" />
       </View>
     );
   }
 
   return (
     <NavigationContainer>
-      {isAuthenticated ? <MainNavigator /> : <AuthNavigator />}
+      {isAuthenticated ? <MainStack /> : <AuthStack />}
     </NavigationContainer>
   );
 }
@@ -152,7 +173,7 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <AppNavigator />
     </AuthProvider>
   );
 }
@@ -162,6 +183,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#f5f5f5',
   },
 });

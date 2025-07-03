@@ -8,8 +8,10 @@ import {
   Alert,
   ScrollView,
   SafeAreaView,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../../context/AuthContext';
 
 export default function RegisterScreen({ navigation }) {
@@ -30,11 +32,65 @@ export default function RegisterScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Estado para el selector de fecha
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  // Función para manejar el cambio de fecha
+  const handleDateChange = (event, date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+
+    if (date) {
+      setSelectedDate(date);
+      // Convertir a formato YYYY-MM-DD para el backend
+      const formattedDate = formatDateForBackend(date);
+      handleInputChange('fechaNac', formattedDate);
+    }
+  };
+
+  // Formatear fecha para mostrar al usuario
+  const formatDateForDisplay = (dateString) => {
+    if (!dateString) return 'Seleccionar fecha de nacimiento';
+
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('es-ES', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch {
+      return 'Fecha inválida';
+    }
+  };
+
+  // Formatear fecha para el backend (YYYY-MM-DD)
+  const formatDateForBackend = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Abrir selector de fecha
+  const openDatePicker = () => {
+    // Si ya hay una fecha seleccionada, usarla como inicial
+    if (formData.fechaNac) {
+      try {
+        setSelectedDate(new Date(formData.fechaNac));
+      } catch {
+        setSelectedDate(new Date());
+      }
+    }
+    setShowDatePicker(true);
   };
 
   const validateForm = () => {
@@ -43,9 +99,21 @@ export default function RegisterScreen({ navigation }) {
     if (!formData.nombre.trim()) newErrors.nombre = 'El nombre es requerido';
     if (!formData.apellido.trim()) newErrors.apellido = 'El apellido es requerido';
     if (!formData.ci.trim()) newErrors.ci = 'La cédula es requerida';
+
+    // Validar que CI sea numérico
+    if (formData.ci && isNaN(parseInt(formData.ci))) {
+      newErrors.ci = 'La cédula debe ser un número válido';
+    }
+
     if (!formData.email.trim()) newErrors.email = 'El email es requerido';
     if (!formData.fechaNac.trim()) newErrors.fechaNac = 'La fecha de nacimiento es requerida';
     if (!formData.contrasenia) newErrors.contrasenia = 'La contraseña es requerida';
+
+    // Validar longitud de contraseña
+    if (formData.contrasenia.length < 6) {
+      newErrors.contrasenia = 'La contraseña debe tener al menos 6 caracteres';
+    }
+
     if (formData.contrasenia !== formData.confirmarContrasenia) {
       newErrors.confirmarContrasenia = 'Las contraseñas no coinciden';
     }
@@ -58,16 +126,25 @@ export default function RegisterScreen({ navigation }) {
     if (!validateForm()) return;
 
     try {
-      await register({
+      // Preparar datos igual que en el frontend web
+      const { confirmarContrasenia, ...payloadToSubmit } = formData;
+
+      const finalPayload = {
+        ...payloadToSubmit,
         nombre: formData.nombre.trim(),
         apellido: formData.apellido.trim(),
-        ci: parseInt(formData.ci),
         email: formData.email.trim().toLowerCase(),
-        telefono: formData.telefono ? parseInt(formData.telefono) : undefined,
-        fechaNac: formData.fechaNac,
+        ci: formData.ci ? parseInt(formData.ci) : null,
+        telefono: formData.telefono ? parseInt(formData.telefono) : null,
+        fechaNac: formData.fechaNac, // Ya está en formato YYYY-MM-DD
         contrasenia: formData.contrasenia,
-      });
+      };
+
+      console.log('Datos finales a enviar:', finalPayload);
+
+      await register(finalPayload);
     } catch (error) {
+      console.error('Error en registro:', error);
       Alert.alert('Error de registro', error.message);
     }
   };
@@ -108,7 +185,7 @@ export default function RegisterScreen({ navigation }) {
             style={[styles.input, errors.ci && styles.inputError]}
             value={formData.ci}
             onChangeText={(value) => handleInputChange('ci', value)}
-            placeholder="12345678"
+            placeholder="12345678 (sin puntos ni guiones)"
             keyboardType="numeric"
           />
           {errors.ci && <Text style={styles.errorText}>{errors.ci}</Text>}
@@ -120,7 +197,7 @@ export default function RegisterScreen({ navigation }) {
             style={[styles.input, errors.email && styles.inputError]}
             value={formData.email}
             onChangeText={(value) => handleInputChange('email', value)}
-            placeholder="ejemplo@correo.com"
+            placeholder="tu@email.com"
             keyboardType="email-address"
             autoCapitalize="none"
           />
@@ -130,24 +207,50 @@ export default function RegisterScreen({ navigation }) {
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Teléfono</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.telefono && styles.inputError]}
             value={formData.telefono}
             onChangeText={(value) => handleInputChange('telefono', value)}
             placeholder="099123456"
             keyboardType="phone-pad"
           />
+          {errors.telefono && <Text style={styles.errorText}>{errors.telefono}</Text>}
         </View>
 
+        {/* Selector de fecha con calendario */}
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Fecha de Nacimiento * (YYYY-MM-DD)</Text>
-          <TextInput
-            style={[styles.input, errors.fechaNac && styles.inputError]}
-            value={formData.fechaNac}
-            onChangeText={(value) => handleInputChange('fechaNac', value)}
-            placeholder="1990-01-01"
-          />
+          <Text style={styles.label}>Fecha de Nacimiento *</Text>
+          <TouchableOpacity
+            style={[styles.dateButton, errors.fechaNac && styles.inputError]}
+            onPress={openDatePicker}
+          >
+            <View style={styles.dateButtonContent}>
+              <Text style={[
+                styles.dateButtonText,
+                !formData.fechaNac && styles.placeholderText
+              ]}>
+                {formatDateForDisplay(formData.fechaNac)}
+              </Text>
+              <Icon
+                name="calendar-outline"
+                size={24}
+                color={formData.fechaNac ? "#007bff" : "#666"}
+              />
+            </View>
+          </TouchableOpacity>
           {errors.fechaNac && <Text style={styles.errorText}>{errors.fechaNac}</Text>}
         </View>
+
+        {/* DateTimePicker - se muestra cuando showDatePicker es true */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={handleDateChange}
+            maximumDate={new Date()} // No permitir fechas futuras
+            minimumDate={new Date(1900, 0, 1)} // Desde el año 1900
+          />
+        )}
 
         {/* Contraseña con toggle */}
         <View style={styles.inputContainer}>
@@ -160,7 +263,7 @@ export default function RegisterScreen({ navigation }) {
               ]}
               value={formData.contrasenia}
               onChangeText={(value) => handleInputChange('contrasenia', value)}
-              placeholder="Tu contraseña"
+              placeholder="Mínimo 6 caracteres"
               secureTextEntry={!showPassword}
             />
             <TouchableOpacity
@@ -188,7 +291,7 @@ export default function RegisterScreen({ navigation }) {
               ]}
               value={formData.confirmarContrasenia}
               onChangeText={(value) => handleInputChange('confirmarContrasenia', value)}
-              placeholder="Confirma tu contraseña"
+              placeholder="Vuelve a escribir la contraseña"
               secureTextEntry={!showConfirmPassword}
             />
             <TouchableOpacity
@@ -211,16 +314,18 @@ export default function RegisterScreen({ navigation }) {
           disabled={isLoading}
         >
           <Text style={styles.buttonText}>
-            {isLoading ? 'Registrando...' : 'Crear Cuenta'}
+            {isLoading ? 'Registrando...' : 'Crear Mi Cuenta'}
           </Text>
         </TouchableOpacity>
 
-        <View style={styles.loginContainer}>
-          <Text style={styles.loginText}>¿Ya tienes cuenta? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.loginLink}>Inicia Sesión</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Login')}
+          style={styles.linkButton}
+        >
+          <Text style={styles.linkText}>
+            ¿Ya tienes una cuenta? Inicia sesión aquí
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -229,7 +334,7 @@ export default function RegisterScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f5f5f5',
   },
   scrollContent: {
     padding: 20,
@@ -238,14 +343,14 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 8,
-    color: '#000',
+    marginBottom: 10,
+    color: '#333',
   },
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
+    marginBottom: 30,
     color: '#666',
-    marginBottom: 32,
   },
   inputContainer: {
     marginBottom: 20,
@@ -254,74 +359,87 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
-    color: '#000',
+    color: '#333',
   },
   input: {
+    backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    padding: 15,
     fontSize: 16,
-    backgroundColor: '#f9f9f9',
   },
   inputError: {
-    borderColor: '#e74c3c',
+    borderColor: '#ff6b6b',
   },
   errorText: {
-    color: '#e74c3c',
+    color: '#ff6b6b',
     fontSize: 14,
-    marginTop: 4,
+    marginTop: 5,
   },
-  // Estilos para el contenedor de contraseña con toggle
+
+  // Estilos para el selector de fecha
+  dateButton: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 15,
+  },
+  dateButtonContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+  },
+  placeholderText: {
+    color: '#999',
+  },
+
+  // Estilos para contraseñas
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    backgroundColor: '#f9f9f9',
   },
   passwordInput: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    padding: 15,
     fontSize: 16,
-    backgroundColor: 'transparent',
-    borderWidth: 0, // Remover el borde del input individual
   },
   eyeButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 15,
   },
+
+  // Estilos para botones
   button: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 16,
+    backgroundColor: '#007bff',
+    padding: 15,
     borderRadius: 8,
     alignItems: 'center',
-    marginBottom: 16,
+    marginTop: 20,
   },
   buttonDisabled: {
-    opacity: 0.7,
+    backgroundColor: '#ccc',
   },
   buttonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
-  loginContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+  linkButton: {
+    marginTop: 20,
+    alignItems: 'center',
   },
-  loginText: {
+  linkText: {
+    color: '#007bff',
     fontSize: 16,
-    color: '#666',
-  },
-  loginLink: {
-    fontSize: 16,
-    color: '#2563eb',
-    fontWeight: '600',
   },
 });

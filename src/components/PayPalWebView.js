@@ -1,5 +1,5 @@
-// src/components/PayPalWebView.js - Versión mejorada para detectar pagos
-import React, { useState } from 'react';
+// src/components/PayPalWebView.js - Versión mejorada para URLs oficiales de PayPal
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,156 +13,298 @@ import { WebView } from 'react-native-webview';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 const PayPalWebView = ({ route, navigation }) => {
-  const { paypalUrl, orderId, onPaymentSuccess, onPaymentCancel } = route.params;
+  const { paypalUrl, orderId, orderData, onPaymentSuccess, onPaymentCancel } = route.params;
   const [loading, setLoading] = useState(true);
   const [currentUrl, setCurrentUrl] = useState('');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const webViewRef = useRef(null);
+  const processedUrls = useRef(new Set());
 
-  // Detectar cuando el pago se completa o cancela
+  // ✅ Log información de debugging al cargar
+  useEffect(() => {
+    console.log('🔍 PayPalWebView iniciado con:');
+    console.log('- URL:', paypalUrl);
+    console.log('- Order ID:', orderId);
+    console.log('- Order Data:', orderData);
+
+    // Validar que tenemos URL válida
+    if (!paypalUrl) {
+      console.error('❌ URL de PayPal no proporcionada');
+      Alert.alert(
+        'Error de Configuración',
+        'No se pudo obtener la URL de PayPal. Contacta soporte.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    }
+  }, []);
+
+  // Timeout para detectar pagos que no redirigen
+  useEffect(() => {
+    let urlCheckTimer;
+
+    if (currentUrl && currentUrl.includes('paypal.com') && !isProcessingPayment) {
+      // Timeout para detectar pagos que no redirigen - DESHABILITADO para evitar falsos positivos
+      // Solo dejar que funcione la detección por URL que es más confiable
+      /*
+      urlCheckTimer = setInterval(() => {
+        if (webViewRef.current) {
+          webViewRef.current.injectJavaScript(`
+            // JavaScript de verificación deshabilitado temporalmente
+            // para evitar falsos positivos en páginas intermedias
+            true;
+          `);
+        }
+      }, 5000); // Aumentado a 5 segundos para reducir frecuencia
+      */
+    }
+
+    return () => {
+      if (urlCheckTimer) clearInterval(urlCheckTimer);
+    };
+  }, [currentUrl, isProcessingPayment]);
+
+  // ✅ CORREGIDO: Detectar SOLO cuando el pago se completa realmente
   const handleNavigationStateChange = (navState) => {
     const { url } = navState;
     setCurrentUrl(url);
 
     console.log('🌐 WebView URL changed:', url);
 
-    // Evitar procesar múltiples veces
-    if (isProcessingPayment) {
-      console.log('⚠️ Already processing payment, ignoring URL change');
+    if (processedUrls.current.has(url) || isProcessingPayment) {
+      console.log('⚠️ URL ya procesada o pago en progreso, ignorando');
       return;
     }
 
-    // Patrones de URLs que indican pago exitoso
+    // ✅ DETECTAR URLs que REALMENTE indican pago completado
     const successPatterns = [
-      '/webapps/hermes/api/onetouch',
+      // URLs oficiales de finalización de PayPal
+      '/webapps/hermes/api/executeagreement',
       '/checkoutnow/success',
       '/checkoutnow/approved',
-      '/webapps/hermes/app.html?flow=1-P', // Después del login
-      'success=true',
-      'PayerID=', // Cuando PayPal retorna con PayerID
+
+      // ✅ CRÍTICO: URLs de tu aplicación que indican éxito
+      '/payment-success', // Esta es la que aparece en los logs
+      'example.com/payment-success', // URL completa que aparece
     ];
 
-    // Patrones de URLs que indican cancelación
+    // Patrones de cancelación
     const cancelPatterns = [
-      'cancel=true',
       '/checkoutnow/cancel',
       '/checkoutnow/error',
+      'cancel=true',
       'cancelled=true',
+      'payment_cancelled',
+      'user_cancelled',
+      'error=true',
+      '/payment-cancel',
+      'example.com/payment-cancel'
     ];
 
-    // Detectar URLs de éxito
-    const isSuccess = successPatterns.some(pattern => url.includes(pattern));
+    // ✅ DETECTAR PayerID en URLs de éxito (más confiable)
+    const hasCompleteSuccess = url.includes('PayerID=') &&
+                              url.includes('token=') &&
+                              (url.includes('/payment-success') ||
+                               url.includes('/success') ||
+                               url.includes('/approved') ||
+                               url.includes('example.com/payment-success'));
+
     const isCancel = cancelPatterns.some(pattern => url.includes(pattern));
+    const isSuccess = successPatterns.some(pattern => url.includes(pattern)) || hasCompleteSuccess;
 
-    // Detectar específicamente cuando el usuario completa el login y autoriza el pago
-    const isPaymentAuthorized = url.includes('/webapps/hermes') &&
-                               (url.includes('useraction=CONTINUE') || url.includes('PayerID='));
+    // ✅ NO detectar en URLs intermedias (pero SÍ en las de éxito)
+    const isIntermediateUrl = url.includes('/webapps/hermes/app.html') ||
+                             url.includes('/signin') ||
+                             url.includes('/login') ||
+                             url.includes('/auth') ||
+                             (url.includes('paypal.com') && !isSuccess && !isCancel);
 
-    if (isSuccess || isPaymentAuthorized) {
-      console.log('✅ Payment success or authorization detected');
+    if (isIntermediateUrl) {
+      console.log('⏳ Intermediate PayPal page detected, waiting for completion:', url);
+      return; // No hacer nada, seguir esperando
+    }
+
+    if (isSuccess) {
+      console.log('✅ REAL payment success detected:', {
+        url,
+        hasCompleteSuccess,
+        hasPayerID: url.includes('PayerID='),
+        matchedPattern: successPatterns.find(pattern => url.includes(pattern))
+      });
+
+      processedUrls.current.add(url);
       setIsProcessingPayment(true);
 
-      // Mostrar mensaje de confirmación antes de regresar
-      Alert.alert(
-        '¡Pago Procesado! 🎉',
-        'Tu pago ha sido procesado en PayPal. Ahora confirmaremos la transacción.',
-        [
-          {
-            text: 'Confirmar',
-            onPress: () => {
-              navigation.goBack();
-              onPaymentSuccess && onPaymentSuccess(orderId);
+      setTimeout(() => {
+        Alert.alert(
+          '✅ Pago Completado',
+          'Tu pago ha sido procesado exitosamente en PayPal. Ahora confirmaremos la transacción.',
+          [
+            {
+              text: 'Confirmar Transacción',
+              onPress: () => {
+                navigation.goBack();
+                onPaymentSuccess && onPaymentSuccess(orderId);
+              }
             }
-          }
-        ]
-      );
+          ]
+        );
+      }, 500);
+
     } else if (isCancel) {
-      console.log('❌ Payment cancelled detected');
+      console.log('❌ Payment cancelled detected:', {
+        url,
+        matchedPattern: cancelPatterns.find(pattern => url.includes(pattern))
+      });
+
+      processedUrls.current.add(url);
       setIsProcessingPayment(true);
-      navigation.goBack();
-      onPaymentCancel && onPaymentCancel();
+
+      setTimeout(() => {
+        navigation.goBack();
+        onPaymentCancel && onPaymentCancel();
+      }, 1000);
     }
   };
 
-  // Inyectar JavaScript para detectar cuando el usuario hace clic en "Pagar"
+  // ✅ JavaScript inyectado SIMPLIFICADO - Solo para logging, no para detección automática
   const injectedJavaScript = `
     (function() {
-      console.log('PayPal WebView JavaScript injected');
+      console.log('PayPal WebView JavaScript injected for URL: ' + window.location.href);
 
-      // Detectar clics en botones de pago
-      document.addEventListener('click', function(e) {
-        const target = e.target;
-        const buttonText = target.textContent || target.innerText || '';
+      let lastUrl = window.location.href;
+      let logCount = 0;
 
-        console.log('Button clicked:', buttonText);
+      // ✅ Función SOLO para logging, NO para detección automática
+      function logPaymentStatus() {
+        try {
+          logCount++;
+          const currentUrl = window.location.href;
+          const bodyText = document.body.innerText;
 
-        // Detectar botones de pago comunes
-        if (buttonText.includes('Pay Now') ||
-            buttonText.includes('Pagar ahora') ||
-            buttonText.includes('Continue') ||
-            buttonText.includes('Continuar') ||
-            target.id.includes('payment') ||
-            target.className.includes('payment')) {
+          // Log cada 10 segundos para debugging
+          if (logCount % 5 === 0) {
+            console.log('PayPal Check #' + logCount);
+            console.log('Current URL:', currentUrl);
+            console.log('Page title:', document.title);
+            console.log('Body preview:', bodyText.substring(0, 200));
+          }
 
-          console.log('Payment button detected, waiting for redirect...');
+          // ✅ Solo detectar cambios de URL para logging
+          if (currentUrl !== lastUrl) {
+            lastUrl = currentUrl;
+            console.log('🔄 URL changed in JavaScript:', currentUrl);
 
-          // Esperar un poco y luego notificar que el pago está en progreso
-          setTimeout(function() {
+            // Solo notificar cambio de URL, NO procesamiento automático
             window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'PAYMENT_PROCESSING',
-              message: 'Payment is being processed'
-            }));
-          }, 2000);
-        }
-      });
-
-      // Detectar cambios en la URL desde JavaScript
-      let currentUrl = window.location.href;
-      setInterval(function() {
-        if (window.location.href !== currentUrl) {
-          currentUrl = window.location.href;
-          console.log('URL changed via JavaScript:', currentUrl);
-
-          if (window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'URL_CHANGE',
-              url: currentUrl
+              type: 'URL_CHANGE_LOG',
+              url: currentUrl,
+              title: document.title,
+              timestamp: Date.now()
             }));
           }
-        }
-      }, 1000);
 
-      true; // Required for injectedJavaScript
+          // ✅ DETECTAR solo elementos muy específicos de finalización
+          const hasReturnButton = document.querySelector('button[data-testid*="return"]') ||
+                                 document.querySelector('a[href*="return"]') ||
+                                 document.querySelector('button:contains("Return to")') ||
+                                 document.querySelector('a:contains("Return to")');
+
+          if (hasReturnButton && bodyText.toLowerCase().includes('complete')) {
+            console.log('🎯 Return button with completion context found');
+            window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'RETURN_BUTTON_FOUND',
+              url: currentUrl,
+              buttonText: hasReturnButton.textContent || hasReturnButton.innerText,
+              timestamp: Date.now()
+            }));
+          }
+
+        } catch (error) {
+          console.log('Error in logging function:', error);
+        }
+      }
+
+      // ✅ Ejecutar cada 2 segundos para logging
+      const logInterval = setInterval(logPaymentStatus, 2000);
+
+      // ✅ Verificación inicial
+      setTimeout(logPaymentStatus, 1000);
+
+      // ✅ Limpiar cuando se salga
+      window.addEventListener('beforeunload', function() {
+        clearInterval(logInterval);
+      });
+
+      true;
     })();
   `;
 
-  // Manejar mensajes desde el JavaScript inyectado
+  // ✅ SIMPLIFICADO: Manejar mensajes desde el JavaScript inyectado
   const handleMessage = (event) => {
     try {
-      const data = JSON.parse(event.nativeEvent.data);
-      console.log('📨 Message from WebView:', data);
+      const message = JSON.parse(event.nativeEvent.data);
+      console.log('📨 Message from WebView:', message);
 
-      if (data.type === 'PAYMENT_PROCESSING') {
-        console.log('💳 Payment is being processed...');
-        setIsProcessingPayment(true);
-      } else if (data.type === 'URL_CHANGE') {
-        console.log('🔄 URL changed via JS:', data.url);
-        // Procesar cambio de URL detectado por JavaScript
-        handleNavigationStateChange({ url: data.url });
+      switch (message.type) {
+        case 'URL_CHANGE_LOG':
+          // Solo logging, no acción automática
+          console.log('📍 URL change logged:', message.url);
+          console.log('📍 Page title:', message.title);
+          break;
+
+        case 'RETURN_BUTTON_FOUND':
+          console.log('🔘 Return button found with completion context');
+          console.log('Button text:', message.buttonText);
+          // NO procesar automáticamente, solo logear
+          break;
+
+        default:
+          console.log('📝 Other message type:', message.type);
       }
     } catch (error) {
       console.log('Error parsing WebView message:', error);
     }
   };
 
-  const handleWebViewError = (error) => {
-    console.error('WebView error:', error);
+  const handleWebViewError = (syntheticEvent) => {
+    const { nativeEvent } = syntheticEvent;
+    console.log('🚨 WebView error:', nativeEvent);
+
+    // ✅ DETECTAR si el error es en una URL de éxito (código 404 en payment-success)
+    const isSuccessUrl = nativeEvent.url && (
+      nativeEvent.url.includes('/payment-success') ||
+      nativeEvent.url.includes('example.com/payment-success')
+    );
+
+    const hasPayerID = nativeEvent.url && nativeEvent.url.includes('PayerID=');
+
+    // ✅ Si es error 404 en URL de éxito con PayerID, considerarlo exitoso
+    if (nativeEvent.statusCode === 404 && isSuccessUrl && hasPayerID) {
+      console.log('✅ Error 404 en URL de éxito con PayerID detectado - tratando como pago exitoso');
+
+      if (!isProcessingPayment) {
+            setIsProcessingPayment(true);
+
+            // ✅ AUTOMÁTICO: Sin alert, directamente regresar y procesar
+            setTimeout(() => {
+              navigation.goBack();
+              onPaymentSuccess && onPaymentSuccess(orderId);
+            }, 500);
+          }
+      return; // No mostrar el alert de error
+    }
+
+    // ✅ Para otros errores, mostrar el alert normal
     Alert.alert(
       'Error de Conexión',
-      'Hubo un problema cargando PayPal. ¿Quieres intentar de nuevo?',
+      `Hubo un problema cargando la página: ${nativeEvent.description || nativeEvent.code}. ¿Quieres intentar de nuevo?`,
       [
         {
           text: 'Cancelar',
-          onPress: () => navigation.goBack(),
+          onPress: () => {
+            navigation.goBack();
+            onPaymentCancel && onPaymentCancel();
+          },
           style: 'cancel'
         },
         {
@@ -170,6 +312,10 @@ const PayPalWebView = ({ route, navigation }) => {
           onPress: () => {
             setLoading(true);
             setIsProcessingPayment(false);
+            processedUrls.current.clear();
+            if (webViewRef.current) {
+              webViewRef.current.reload();
+            }
           }
         }
       ]
@@ -180,11 +326,18 @@ const PayPalWebView = ({ route, navigation }) => {
     if (isProcessingPayment) {
       Alert.alert(
         'Pago en Proceso',
-        'Tu pago se está procesando. ¿Estás seguro de que quieres cancelar?',
+        'Tu pago se está procesando. ¿Estás seguro de que quieres salir? Si ya completaste el pago, presiona "Ya completé el pago".',
         [
           { text: 'Esperar', style: 'cancel' },
           {
-            text: 'Cancelar',
+            text: 'Ya completé el pago',
+            onPress: () => {
+              navigation.goBack();
+              onPaymentSuccess && onPaymentSuccess(orderId);
+            }
+          },
+          {
+            text: 'Cancelar pago',
             onPress: () => {
               navigation.goBack();
               onPaymentCancel && onPaymentCancel();
@@ -220,7 +373,7 @@ const PayPalWebView = ({ route, navigation }) => {
           <Icon name="arrow-back" size={24} color="#0070ba" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isProcessingPayment ? 'Procesando Pago...' : 'Pago PayPal'}
+          {isProcessingPayment ? 'Procesando Pago...' : 'PayPal'}
         </Text>
         <TouchableOpacity onPress={handleGoBack} style={styles.closeButton}>
           <Icon name="close" size={24} color="#0070ba" />
@@ -231,35 +384,15 @@ const PayPalWebView = ({ route, navigation }) => {
       <View style={styles.urlBar}>
         <Icon name={isProcessingPayment ? "checkmark-circle" : "lock-closed"}
               size={16}
-              color={isProcessingPayment ? "#28a745" : "#666"} />
+              color={isProcessingPayment ? "#28a745" : "#0070ba"} />
         <Text style={[styles.urlText, isProcessingPayment && styles.urlTextSuccess]} numberOfLines={1}>
           {isProcessingPayment ? 'Pago procesado exitosamente' : (currentUrl || paypalUrl)}
         </Text>
       </View>
 
-      {/* Loading indicator */}
-      {loading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0070ba" />
-          <Text style={styles.loadingText}>Cargando PayPal...</Text>
-        </View>
-      )}
-
-      {/* Processing indicator */}
-      {isProcessingPayment && (
-        <View style={styles.processingContainer}>
-          <ActivityIndicator size="large" color="#28a745" />
-          <Text style={styles.processingText}>
-            Procesando tu pago...
-          </Text>
-          <Text style={styles.processingSubtext}>
-            No cierres esta pantalla
-          </Text>
-        </View>
-      )}
-
       {/* WebView */}
       <WebView
+        ref={webViewRef}
         source={{ uri: paypalUrl }}
         style={[styles.webview, isProcessingPayment && styles.webviewProcessing]}
         onLoadStart={() => setLoading(true)}
@@ -269,7 +402,7 @@ const PayPalWebView = ({ route, navigation }) => {
         onError={handleWebViewError}
         onHttpError={handleWebViewError}
         injectedJavaScript={injectedJavaScript}
-        userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
+        userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1"
         javaScriptEnabled={true}
         domStorageEnabled={true}
         startInLoadingState={true}
@@ -277,17 +410,10 @@ const PayPalWebView = ({ route, navigation }) => {
         allowsBackForwardNavigationGestures={false}
         mixedContentMode="compatibility"
         thirdPartyCookiesEnabled={true}
+        originWhitelist={['*']}
+        allowsInlineMediaPlaybook={true}
+        mediaPlaybackRequiresUserAction={false}
       />
-
-      {/* Bottom instruction */}
-      <View style={styles.bottomBar}>
-        <Text style={styles.instructionText}>
-          {isProcessingPayment
-            ? '🎉 ¡Pago completado! Confirmando transacción...'
-            : '💳 Inicia sesión en PayPal y completa tu pago de forma segura'
-          }
-        </Text>
-      </View>
     </SafeAreaView>
   );
 };
@@ -355,13 +481,12 @@ const styles = StyleSheet.create({
   processingContainer: {
     position: 'absolute',
     top: '40%',
-    left: 0,
-    right: 0,
+    left: 20,
+    right: 20,
     alignItems: 'center',
     zIndex: 2,
     backgroundColor: 'rgba(40, 167, 69, 0.95)',
     paddingVertical: 30,
-    marginHorizontal: 20,
     borderRadius: 12,
   },
   processingText: {
@@ -393,6 +518,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+    marginBottom: 8,
+  },
+  manualSection: {
+    marginTop: 12,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+  },
+  manualSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  manualSectionSubtitle: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  manualConfirmButton: {
+    marginTop: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: '#28a745',
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  manualConfirmText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

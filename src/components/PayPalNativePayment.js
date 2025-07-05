@@ -1,4 +1,4 @@
-// src/components/PayPalNativePayment.js - Versión corregida con información completa del ómnibus
+// src/components/PayPalNativePayment.js - Versión corregida para manejo automático
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -143,7 +143,6 @@ const PayPalNativePayment = ({ route, navigation }) => {
     }
   };
 
-  // Crear orden PayPal usando tu backend
   const crearOrdenPayPal = async () => {
     try {
       console.log('🎯 Creando orden PayPal...');
@@ -152,7 +151,6 @@ const PayPalNativePayment = ({ route, navigation }) => {
       console.log('📤 Request body:', requestBody);
 
       const response = await apiClient.post('/api/paypal/orders', requestBody, true);
-      console.log('✅ Orden PayPal creada exitosamente:', response);
 
       return response;
     } catch (error) {
@@ -172,9 +170,13 @@ const PayPalNativePayment = ({ route, navigation }) => {
     }
   };
 
-  // Verificar el estado del pago en PayPal
-  const verificarPago = async () => {
-    if (!paypalOrderId) {
+  // ✅ CORREGIDO: Verificar pago con ID específico
+  const verificarPago = async (orderIdToVerify) => {
+    // Usar el ID pasado como parámetro o el del estado
+    const orderIdToUse = orderIdToVerify || paypalOrderId;
+
+    if (!orderIdToUse) {
+      console.error('❌ No hay orden PayPal para verificar');
       Alert.alert('Error', 'No hay una orden PayPal para verificar');
       return;
     }
@@ -182,9 +184,9 @@ const PayPalNativePayment = ({ route, navigation }) => {
     setLoading(true);
 
     try {
-      console.log('🔍 Verificando pago para orden:', paypalOrderId);
+      console.log('🔍 Verificando pago para orden:', orderIdToUse);
 
-      const captureResponse = await apiClient.get(`/api/paypal/orders/${paypalOrderId}/capture`, true);
+      const captureResponse = await apiClient.post(`/api/paypal/orders/${orderIdToUse}/capture`, {}, true);
       console.log('📦 Respuesta de captura:', captureResponse);
 
       if (captureResponse.status === 'COMPLETED') {
@@ -221,6 +223,7 @@ const PayPalNativePayment = ({ route, navigation }) => {
           ]
         );
 
+        // Limpiar estado
         setPaypalOrderId(null);
 
       } else {
@@ -228,7 +231,7 @@ const PayPalNativePayment = ({ route, navigation }) => {
           'Pago Pendiente',
           'El pago aún no ha sido completado. Si ya realizaste el pago, espera unos momentos y vuelve a verificar.',
           [
-            { text: 'Verificar de Nuevo', onPress: verificarPago },
+            { text: 'Verificar de Nuevo', onPress: () => verificarPago(orderIdToUse) },
             { text: 'Cancelar', style: 'cancel' }
           ]
         );
@@ -249,7 +252,7 @@ const PayPalNativePayment = ({ route, navigation }) => {
           'Error',
           'Hubo un problema verificando tu pago. Si el dinero fue debitado, contacta soporte.',
           [
-            { text: 'Reintentar', onPress: verificarPago },
+            { text: 'Reintentar', onPress: () => verificarPago(orderIdToUse) },
             { text: 'Cancelar', style: 'cancel' }
           ]
         );
@@ -259,26 +262,36 @@ const PayPalNativePayment = ({ route, navigation }) => {
     }
   };
 
-  // Función principal para procesar el pago con PayPal Web
   const procesarPagoPayPal = async () => {
     setLoading(true);
 
     try {
+      // 1. Crear orden en PayPal
       const orderData = await crearOrdenPayPal();
       setPaypalOrderId(orderData.id);
 
-      const paypalUrl = `https://www.sandbox.paypal.com/checkoutnow?token=${orderData.id}`;
+      // ✅ 2. USAR SOLO EL FORMATO ESTÁNDAR CON LINKS ARRAY
+      const approveLink = orderData.links?.find(link => link.rel === 'approve');
 
-      console.log('🌐 Navegando a PayPal WebView:', paypalUrl);
+      if (!approveLink || !approveLink.href) {
+        console.error('❌ No se encontró el link de aprobación en:', orderData.links);
+        throw new Error('No se encontró el link de aprobación de PayPal. Verifica la configuración del backend.');
+      }
 
+      const paypalUrl = approveLink.href;
+
+      console.log('🌐 URL oficial de PayPal encontrada:', paypalUrl);
+
+      // 3. Navegar al WebView con la URL oficial de PayPal
       navigation.navigate('PayPalWebView', {
         paypalUrl,
         orderId: orderData.id,
+        orderData,
         onPaymentSuccess: (orderId) => {
           console.log('✅ Payment success callback:', orderId);
-          setPaypalOrderId(orderId);
+          // ✅ CORREGIDO: Pasar el orderId directamente a verificarPago
           setTimeout(() => {
-            verificarPago();
+            verificarPago(orderId);
           }, 1000);
         },
         onPaymentCancel: () => {
@@ -297,7 +310,7 @@ const PayPalNativePayment = ({ route, navigation }) => {
   };
 
   // Pago simulado para testing
-  const pagoSimulado = async () => {
+  /*const pagoSimulado = async () => {
     Alert.alert(
       'Pago Simulado',
       '¿Confirmas la compra simulada? (Solo para testing)',
@@ -329,7 +342,7 @@ const PayPalNativePayment = ({ route, navigation }) => {
         }
       ]
     );
-  };
+  };*/
 
   return (
     <SafeAreaView style={styles.container}>
@@ -441,7 +454,7 @@ const PayPalNativePayment = ({ route, navigation }) => {
         <View style={styles.paymentCard}>
           <Text style={styles.sectionTitle}>Métodos de Pago</Text>
 
-          {/* Botón PayPal WebView (Recomendado) */}
+          {/* ✅ Botón PayPal con URL oficial */}
           <TouchableOpacity
             style={[styles.paymentButton, styles.paypalButton]}
             onPress={procesarPagoPayPal}
@@ -453,40 +466,6 @@ const PayPalNativePayment = ({ route, navigation }) => {
               <>
                 <Icon name="logo-paypal" size={20} color="#fff" />
                 <Text style={styles.paymentButtonText}>Pagar con PayPal</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          {/* Botón de verificar pago (si hay una orden pendiente) */}
-          {paypalOrderId && (
-            <TouchableOpacity
-              style={[styles.paymentButton, styles.verifyButton]}
-              onPress={verificarPago}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <>
-                  <Icon name="checkmark-circle-outline" size={20} color="#fff" />
-                  <Text style={styles.paymentButtonText}>Verificar Pago</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          )}
-
-          {/* Botón de pago simulado para testing */}
-          <TouchableOpacity
-            style={[styles.paymentButton, styles.simulatedButton]}
-            onPress={pagoSimulado}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <>
-                <Icon name="flask-outline" size={20} color="#fff" />
-                <Text style={styles.paymentButtonText}>Pago Simulado (Testing)</Text>
               </>
             )}
           </TouchableOpacity>
@@ -662,9 +641,6 @@ const styles = StyleSheet.create({
   },
   paypalButton: {
     backgroundColor: '#0070ba',
-  },
-  verifyButton: {
-    backgroundColor: '#16a34a',
   },
   simulatedButton: {
     backgroundColor: '#6b7280',

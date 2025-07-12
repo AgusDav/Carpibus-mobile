@@ -1,258 +1,291 @@
+// src/screens/ProfileScreen.js - Ejemplo de cómo integrar NotificationStatus
 import React from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
-  Alert,
+  TouchableOpacity,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../context/AuthContext';
+import NotificationStatus from '../components/NotificationStatus';
 
 export default function ProfileScreen({ navigation }) {
   const { user, logout } = useAuth();
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro que deseas cerrar sesión?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Cerrar Sesión',
-          style: 'destructive',
-          onPress: logout,
-        },
-      ]
-    );
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'No especificado';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES');
-  };
+  const menuItems = [
+    {
+      icon: 'settings-outline',
+      title: 'Configuración',
+      subtitle: 'Ajustes de la aplicación',
+      onPress: () => navigation.navigate('Configuration'),
+    },
+    {
+      icon: 'help-circle-outline',
+      title: 'Ayuda',
+      subtitle: 'Centro de ayuda y soporte',
+      onPress: () => navigation.navigate('Help'),
+    },
+    {
+      icon: 'information-circle-outline',
+      title: 'Acerca de',
+      subtitle: 'Información de la aplicación',
+      onPress: () => navigation.navigate('About'),
+    },
+    {
+      icon: 'log-out-outline',
+      title: 'Cerrar Sesión',
+      subtitle: 'Salir de tu cuenta',
+      onPress: logout,
+      danger: true,
+    },
+  ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ScrollView style={styles.container}>
+      {/* Header del perfil */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mi Perfil</Text>
+        <View style={styles.avatarContainer}>
+          <Icon name="person" size={40} color="#2c5530" />
+        </View>
+        <Text style={styles.userName}>{user?.nombre} {user?.apellido}</Text>
+        <Text style={styles.userEmail}>{user?.email}</Text>
       </View>
 
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Información del usuario */}
-        <View style={styles.userInfo}>
-          <View style={styles.avatar}>
-            <Icon name="person" size={48} color="#2563eb" />
+      {/* 🔥 COMPONENTE DE ESTADO DE NOTIFICACIONES */}
+      <NotificationStatus />
+
+      {/* Información del usuario */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Información Personal</Text>
+
+        <View style={styles.infoCard}>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Nombre completo</Text>
+            <Text style={styles.infoValue}>
+              {user?.nombre} {user?.apellido}
+            </Text>
           </View>
-          <Text style={styles.userName}>
-            {user?.nombre} {user?.apellido}
-          </Text>
-          <Text style={styles.userEmail}>{user?.email}</Text>
-          <Text style={styles.userRole}>{user?.rol}</Text>
-        </View>
 
-        {/* Detalles del perfil */}
-        <View style={styles.detailsSection}>
-          <Text style={styles.sectionTitle}>Información Personal</Text>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Email</Text>
+            <Text style={styles.infoValue}>{user?.email}</Text>
+          </View>
 
-          <View style={styles.detailRow}>
-            <Icon name="card-outline" size={20} color="#666" />
-            <View style={styles.detailInfo}>
-              <Text style={styles.detailLabel}>Cédula</Text>
-              <Text style={styles.detailValue}>{user?.ci || 'No especificado'}</Text>
+          {user?.ci && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Cédula</Text>
+              <Text style={styles.infoValue}>{user.ci}</Text>
             </View>
-          </View>
+          )}
 
-          <View style={styles.detailRow}>
-            <Icon name="call-outline" size={20} color="#666" />
-            <View style={styles.detailInfo}>
-              <Text style={styles.detailLabel}>Teléfono</Text>
-              <Text style={styles.detailValue}>{user?.telefono || 'No especificado'}</Text>
-            </View>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Icon name="calendar-outline" size={20} color="#666" />
-            <View style={styles.detailInfo}>
-              <Text style={styles.detailLabel}>Fecha de Nacimiento</Text>
-              <Text style={styles.detailValue}>{formatDate(user?.fechaNac)}</Text>
-            </View>
-          </View>
-
-          {user?.tipoCliente && (
-            <View style={styles.detailRow}>
-              <Icon name="star-outline" size={20} color="#666" />
-              <View style={styles.detailInfo}>
-                <Text style={styles.detailLabel}>Tipo de Cliente</Text>
-                <Text style={styles.detailValue}>{user.tipoCliente}</Text>
-              </View>
+          {user?.telefono && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Teléfono</Text>
+              <Text style={styles.infoValue}>{user.telefono}</Text>
             </View>
           )}
         </View>
+      </View>
 
-        {/* Opciones */}
-        <View style={styles.optionsSection}>
-          <TouchableOpacity
-            style={styles.optionRow}
-            onPress={() => navigation.navigate('Configuration')}
-          >
-            <Icon name="settings-outline" size={24} color="#666" />
-            <Text style={styles.optionText}>Configuración</Text>
-            <Icon name="chevron-forward" size={20} color="#666" />
-          </TouchableOpacity>
+      {/* Menú de opciones */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Opciones</Text>
 
+        {menuItems.map((item, index) => (
           <TouchableOpacity
-            style={styles.optionRow}
-            onPress={() => navigation.navigate('Help')}
+            key={index}
+            style={[
+              styles.menuItem,
+              item.danger && styles.dangerItem
+            ]}
+            onPress={item.onPress}
           >
-            <Icon name="help-circle-outline" size={24} color="#666" />
-            <Text style={styles.optionText}>Ayuda</Text>
-            <Icon name="chevron-forward" size={20} color="#666" />
+            <Icon
+              name={item.icon}
+              size={24}
+              color={item.danger ? '#EF4444' : '#6B7280'}
+              style={styles.menuIcon}
+            />
+            <View style={styles.menuContent}>
+              <Text style={[
+                styles.menuTitle,
+                item.danger && styles.dangerText
+              ]}>
+                {item.title}
+              </Text>
+              <Text style={styles.menuSubtitle}>
+                {item.subtitle}
+              </Text>
+            </View>
+            <Icon
+              name="chevron-forward"
+              size={20}
+              color="#C1C1C1"
+            />
           </TouchableOpacity>
+        ))}
+      </View>
 
-          <TouchableOpacity
-            style={styles.optionRow}
-            onPress={() => navigation.navigate('About')}
-          >
-            <Icon name="information-circle-outline" size={24} color="#666" />
-            <Text style={styles.optionText}>Acerca de</Text>
-            <Icon name="chevron-forward" size={20} color="#666" />
-          </TouchableOpacity>
+      {/* Información sobre notificaciones */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Acerca de las Notificaciones</Text>
+
+        <View style={styles.notificationInfo}>
+          <View style={styles.notificationItem}>
+            <Icon name="checkmark-circle" size={20} color="#10B981" />
+            <Text style={styles.notificationText}>
+              Cierre de ventas 1 hora antes del viaje
+            </Text>
+          </View>
+
+          <View style={styles.notificationItem}>
+            <Icon name="checkmark-circle" size={20} color="#10B981" />
+            <Text style={styles.notificationText}>
+              Recordatorios de hora de partida
+            </Text>
+          </View>
+
+          <View style={styles.notificationItem}>
+            <Icon name="checkmark-circle" size={20} color="#10B981" />
+            <Text style={styles.notificationText}>
+              Confirmaciones de compra y devolución
+            </Text>
+          </View>
         </View>
-
-        {/* Botón de logout */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Icon name="log-out-outline" size={24} color="#e74c3c" />
-          <Text style={styles.logoutText}>Cerrar Sesión</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F9FAFB',
   },
   header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 32, // Espacio extra al final para el botón logout
-  },
-  userInfo: {
+    backgroundColor: 'white',
+    padding: 24,
     alignItems: 'center',
-    marginBottom: 32,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
-  avatar: {
+  avatarContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#f0f8ff',
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
   userName: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: '700',
+    color: '#111827',
     marginBottom: 4,
   },
   userEmail: {
     fontSize: 16,
-    color: '#666',
-    marginBottom: 4,
+    color: '#6B7280',
   },
-  userRole: {
-    fontSize: 14,
-    color: '#2563eb',
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  detailsSection: {
-    marginBottom: 32,
+  section: {
+    marginTop: 24,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 12,
+    marginHorizontal: 16,
   },
-  detailRow: {
+  infoCard: {
+    backgroundColor: 'white',
+    marginHorizontal: 16,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  infoRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#F3F4F6',
   },
-  detailInfo: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  detailLabel: {
+  infoLabel: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  detailValue: {
-    fontSize: 16,
-    color: '#000',
+    color: '#6B7280',
     fontWeight: '500',
   },
-  optionsSection: {
-    marginBottom: 32,
-  },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  optionText: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 16,
-    color: '#000',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e74c3c',
-    marginBottom: 16, // Espacio al final
-  },
-  logoutText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#e74c3c',
+  infoValue: {
+    fontSize: 14,
+    color: '#111827',
     fontWeight: '600',
+  },
+  menuItem: {
+    backgroundColor: 'white',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  dangerItem: {
+    borderColor: '#FEE2E2',
+    borderWidth: 1,
+  },
+  menuIcon: {
+    marginRight: 12,
+  },
+  menuContent: {
+    flex: 1,
+  },
+  menuTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  dangerText: {
+    color: '#EF4444',
+  },
+  menuSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  notificationInfo: {
+    backgroundColor: 'white',
+    marginHorizontal: 16,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  notificationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  notificationText: {
+    fontSize: 14,
+    color: '#374151',
+    marginLeft: 8,
+    flex: 1,
   },
 });

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const BASE_URL = 'https://web-production-2443c.up.railway.app'; // Ajustar según tu backend
+const BASE_URL = 'https://web-production-2443c.up.railway.app';
 
 class ApiClient {
   async get(endpoint, requiresAuth = false) {
@@ -82,6 +82,14 @@ class ApiClient {
       throw error;
     }
   }
+
+    async updateFCMToken(token) {
+        return this.put('/api/cliente/fcm-token', { token }, true);
+    }
+
+    async clearFCMToken() {
+        return this.delete('/api/cliente/fcm-token', true);
+    }
 }
 
 export const apiClient = new ApiClient();

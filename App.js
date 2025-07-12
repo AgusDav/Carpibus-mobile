@@ -1,5 +1,4 @@
-// App.js - Navegación actualizada para PayPal
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -8,6 +7,13 @@ import Icon from 'react-native-vector-icons/Ionicons';
 
 // Context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+
+// 🔥 IMPORTAR SessionManager
+import SessionManager from './src/utils/SessionManager';
+
+// 🔥 IMPORTAR Firebase Service y Navigation Service
+import FirebaseService from './src/services/FirebaseService';
+import { NavigationService } from './src/services/NavigationService';
 
 // Screens
 import LoginScreen from './src/screens/auth/LoginScreen';
@@ -22,7 +28,6 @@ import ConfigurationScreen from './src/screens/ConfigurationScreen';
 import HelpScreen from './src/screens/HelpScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import PayPalNativePayment from './src/components/PayPalNativePayment';
-
 import PayPalWebView from './src/components/PayPalWebView';
 
 const Stack = createNativeStackNavigator();
@@ -117,7 +122,7 @@ function MainStack() {
         options={{
           headerShown: false,
           title: 'Pago con PayPal',
-          gestureEnabled: false, // Evitar que el usuario pueda volver con gestos durante el pago
+          gestureEnabled: false,
         }}
       />
       <Stack.Screen
@@ -164,7 +169,54 @@ function MainStack() {
 }
 
 function AppNavigator() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, logout } = useAuth();
+  const navigationRef = useRef();
+
+  // 🔥 CONFIGURAR SessionManager Y Firebase CUANDO EL USUARIO ESTÉ AUTENTICADO
+  useEffect(() => {
+    if (isAuthenticated && navigationRef.current) {
+      console.log('🔧 Configurando SessionManager globalmente...');
+
+      // Configurar navegación
+      SessionManager.setNavigation(navigationRef.current);
+      NavigationService.setNavigator(navigationRef.current);
+
+      // Configurar callback de logout personalizado
+      SessionManager.setLogoutCallback(logout);
+
+      // Iniciar verificación de sesión
+      SessionManager.startSessionCheck();
+
+      // 🔥 INICIALIZAR Firebase Service
+      console.log('🔥 Inicializando Firebase Service...');
+      FirebaseService.initialize();
+
+      // Cleanup al desmontar o cuando cambie el estado de autenticación
+      return () => {
+        SessionManager.stopSessionCheck();
+      };
+    } else if (!isAuthenticated) {
+      // Detener verificación si no está autenticado
+      SessionManager.stopSessionCheck();
+
+      // 🔥 LIMPIAR token FCM al hacer logout
+      console.log('🗑️ Limpiando token FCM por logout...');
+      FirebaseService.clearTokenFromBackend();
+    }
+  }, [isAuthenticated, logout]);
+
+  // 🔥 EFECTO ADICIONAL PARA RE-REGISTRAR TOKEN DESPUÉS DEL LOGIN
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Dar tiempo para que se configure la autenticación
+      const timer = setTimeout(() => {
+        console.log('🔄 Re-registrando token FCM después del login...');
+        FirebaseService.refreshToken();
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated]);
 
   if (loading) {
     return (
@@ -175,7 +227,17 @@ function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      ref={navigationRef}
+      onReady={() => {
+        // 🔥 ASEGURAR QUE SessionManager Y NavigationService SE CONFIGUREN CUANDO LA NAVEGACIÓN ESTÉ LISTA
+        if (isAuthenticated) {
+          SessionManager.setNavigation(navigationRef.current);
+          NavigationService.setNavigator(navigationRef.current);
+          console.log('📱 Navegación lista, servicios configurados');
+        }
+      }}
+    >
       {isAuthenticated ? <MainStack /> : <AuthStack />}
     </NavigationContainer>
   );

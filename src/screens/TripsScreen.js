@@ -104,10 +104,10 @@ export default function TripsScreen({ navigation }) {
         console.log('📄 PAYLOAD:', JSON.stringify(payload, null, 2));
 
         Alert.alert('JWT Info', `
-Usuario: ${payload.nombre}
-ID: ${payload.userId}
-Rol: ${payload.authorities?.[0]}
-Expira: ${new Date(payload.exp * 1000).toLocaleString()}
+            Usuario: ${payload.nombre}
+            ID: ${payload.userId}
+            Rol: ${payload.authorities?.[0]}
+            Expira: ${new Date(payload.exp * 1000).toLocaleString()}
         `.trim());
       } else {
         Alert.alert('Error', 'No se encontró token JWT');

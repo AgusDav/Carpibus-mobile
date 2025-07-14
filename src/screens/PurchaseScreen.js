@@ -1,9 +1,7 @@
-// src/screens/PurchaseScreen.js - Versión mejorada con interfaz visual
 import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
@@ -13,10 +11,13 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
+import { globalStyles } from '../styles/globalStyles';
+import { useTheme } from '../hooks/useTheme';
 
 export default function PurchaseScreen({ route, navigation }) {
   const { tripId } = route.params;
   const { user } = useAuth();
+  const theme = useTheme();
 
   const [tripDetail, setTripDetail] = useState(null);
   const [asientosOcupados, setAsientosOcupados] = useState([]);
@@ -107,23 +108,28 @@ export default function PurchaseScreen({ route, navigation }) {
       const estaOcupado = asientosOcupados.includes(i);
       const estaSeleccionado = asientoSeleccionado === i;
 
-      let estilo = [styles.asiento];
+      let estilo = [localStyles.asiento];
+      let colorFondo, colorBorde;
+
       if (estaOcupado) {
-        estilo.push(styles.asientoOcupado);
+        colorFondo = theme.colors.error;
+        colorBorde = theme.colors.error;
       } else if (estaSeleccionado) {
-        estilo.push(styles.asientoSeleccionado);
+        colorFondo = theme.colors.primary;
+        colorBorde = theme.colors.primary;
       } else {
-        estilo.push(styles.asientoDisponible);
+        colorFondo = theme.colors.success;
+        colorBorde = theme.colors.success;
       }
 
       asientosVisuales.push(
         <TouchableOpacity
           key={i}
-          style={estilo}
+          style={[estilo, { backgroundColor: colorFondo, borderColor: colorBorde }]}
           onPress={() => handleSeleccionarAsiento(i)}
           disabled={estaOcupado}
         >
-          <Text style={styles.asientoTexto}>{i}</Text>
+          <Text style={localStyles.asientoTexto}>{i}</Text>
         </TouchableOpacity>
       );
     }
@@ -132,12 +138,12 @@ export default function PurchaseScreen({ route, navigation }) {
     const filas = [];
     for (let i = 0; i < asientosVisuales.length; i += 4) {
       filas.push(
-        <View key={`fila-${i/4}`} style={styles.filaAsientos}>
-          <View style={styles.ladoIzquierdo}>
+        <View key={`fila-${i/4}`} style={localStyles.filaAsientos}>
+          <View style={localStyles.ladoIzquierdo}>
             {asientosVisuales.slice(i, i + 2)}
           </View>
-          <View style={styles.pasillo} />
-          <View style={styles.ladoDerecho}>
+          <View style={localStyles.pasillo} />
+          <View style={localStyles.ladoDerecho}>
             {asientosVisuales.slice(i + 2, i + 4)}
           </View>
         </View>
@@ -169,86 +175,95 @@ export default function PurchaseScreen({ route, navigation }) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Cargando información del viaje...</Text>
+      <SafeAreaView style={globalStyles.safeArea}>
+        <View style={[globalStyles.centerContent, globalStyles.screenPadding]}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={[globalStyles.textBody, globalStyles.marginBottomMd, { textAlign: 'center' }]}>
+            Cargando información del viaje...
+          </Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={globalStyles.safeArea}>
+      {/* Header */}
+      <View style={[globalStyles.header, globalStyles.row, globalStyles.spaceBetween]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          style={styles.backButton}
+          style={localStyles.backButton}
         >
-          <Icon name="arrow-back" size={24} color="#333" />
+          <Icon name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Seleccionar Asiento</Text>
-        <View style={styles.placeholder} />
+        <Text style={globalStyles.headerTitle}>Seleccionar Asiento</Text>
+        <View style={localStyles.placeholder} />
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={globalStyles.container} contentContainerStyle={globalStyles.screenPadding}>
         {/* Información del viaje */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Información del Viaje</Text>
+        <View style={globalStyles.card}>
+          <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
+            Información del Viaje
+          </Text>
 
-          <View style={styles.infoRow}>
-            <Icon name="location" size={20} color="#666" />
-            <Text style={styles.infoText}>
+          <View style={[globalStyles.row, localStyles.infoRow]}>
+            <Icon name="location" size={20} color={theme.colors.textSecondary} />
+            <Text style={[globalStyles.textBody, localStyles.infoText]}>
               {tripDetail?.origenNombre || tripDetail?.ciudadOrigen} → {tripDetail?.destinoNombre || tripDetail?.ciudadDestino}
             </Text>
           </View>
 
-          <View style={styles.infoRow}>
-            <Icon name="calendar" size={20} color="#666" />
-            <Text style={styles.infoText}>
+          <View style={[globalStyles.row, localStyles.infoRow]}>
+            <Icon name="calendar" size={20} color={theme.colors.textSecondary} />
+            <Text style={[globalStyles.textBody, localStyles.infoText]}>
               {formatDate(tripDetail?.fecha || tripDetail?.fechaHoraSalida)}
             </Text>
           </View>
 
-          <View style={styles.infoRow}>
-            <Icon name="time" size={20} color="#666" />
-            <Text style={styles.infoText}>
+          <View style={[globalStyles.row, localStyles.infoRow]}>
+            <Icon name="time" size={20} color={theme.colors.textSecondary} />
+            <Text style={[globalStyles.textBody, localStyles.infoText]}>
               Salida: {formatTime(tripDetail?.horaSalida) || new Date(tripDetail?.fechaHoraSalida).toLocaleTimeString()}
             </Text>
           </View>
 
-          <View style={styles.infoRow}>
-            <Icon name="bus" size={20} color="#666" />
-            <Text style={styles.infoText}>
+          <View style={[globalStyles.row, localStyles.infoRow]}>
+            <Icon name="bus" size={20} color={theme.colors.textSecondary} />
+            <Text style={[globalStyles.textBody, localStyles.infoText]}>
               {tripDetail?.omnibusMatricula || tripDetail?.busAsignado?.matricula || 'Ómnibus asignado'}
             </Text>
           </View>
         </View>
 
         {/* Selección de asientos */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Selecciona tu Asiento</Text>
+        <View style={globalStyles.card}>
+          <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
+            Selecciona tu Asiento
+          </Text>
 
           {/* Leyenda */}
-          <View style={styles.leyenda}>
-            <View style={styles.leyendaItem}>
-              <View style={[styles.leyendaColor, styles.asientoDisponible]} />
-              <Text style={styles.leyendaTexto}>Disponible</Text>
+          <View style={localStyles.leyenda}>
+            <View style={localStyles.leyendaItem}>
+              <View style={[localStyles.leyendaColor, { backgroundColor: theme.colors.success }]} />
+              <Text style={globalStyles.textSmall}>Disponible</Text>
             </View>
-            <View style={styles.leyendaItem}>
-              <View style={[styles.leyendaColor, styles.asientoSeleccionado]} />
-              <Text style={styles.leyendaTexto}>Seleccionado</Text>
+            <View style={localStyles.leyendaItem}>
+              <View style={[localStyles.leyendaColor, { backgroundColor: theme.colors.primary }]} />
+              <Text style={globalStyles.textSmall}>Seleccionado</Text>
             </View>
-            <View style={styles.leyendaItem}>
-              <View style={[styles.leyendaColor, styles.asientoOcupado]} />
-              <Text style={styles.leyendaTexto}>Ocupado</Text>
+            <View style={localStyles.leyendaItem}>
+              <View style={[localStyles.leyendaColor, { backgroundColor: theme.colors.error }]} />
+              <Text style={globalStyles.textSmall}>Ocupado</Text>
             </View>
           </View>
 
           {/* Mapa de asientos */}
-          <View style={styles.omnibusContainer}>
-            <Text style={styles.frenteTexto}>Frente del ómnibus</Text>
-            <View style={styles.mapaAsientos}>
+          <View style={localStyles.omnibusContainer}>
+            <Text style={[globalStyles.textCaption, { textAlign: 'center', marginBottom: 16 }]}>
+              Frente del ómnibus
+            </Text>
+            <View style={localStyles.mapaAsientos}>
               {renderAsientos()}
             </View>
           </View>
@@ -256,49 +271,54 @@ export default function PurchaseScreen({ route, navigation }) {
 
         {/* Resumen de precio */}
         {asientoSeleccionado && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Resumen de Compra</Text>
+          <View style={globalStyles.card}>
+            <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
+              Resumen de Compra
+            </Text>
 
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Asiento seleccionado:</Text>
-              <Text style={styles.priceValue}>{asientoSeleccionado}</Text>
+            <View style={localStyles.priceRow}>
+              <Text style={globalStyles.textBody}>Asiento seleccionado:</Text>
+              <Text style={[globalStyles.textBody, { fontWeight: '600' }]}>{asientoSeleccionado}</Text>
             </View>
 
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Precio base:</Text>
-              <Text style={styles.priceValue}>${precios.precioBase.toFixed(2)}</Text>
+            <View style={localStyles.priceRow}>
+              <Text style={globalStyles.textBody}>Precio base:</Text>
+              <Text style={[globalStyles.textBody, { fontWeight: '500' }]}>${precios.precioBase.toFixed(2)}</Text>
             </View>
 
             {precios.tieneDescuento && (
-              <View style={styles.priceRow}>
-                <Text style={[styles.priceLabel, styles.discountText]}>
+              <View style={localStyles.priceRow}>
+                <Text style={[globalStyles.textBody, { color: theme.colors.success }]}>
                   Descuento ({user?.tipoCliente}):
                 </Text>
-                <Text style={[styles.priceValue, styles.discountText]}>
+                <Text style={[globalStyles.textBody, { color: theme.colors.success, fontWeight: '500' }]}>
                   -${precios.descuento.toFixed(2)}
                 </Text>
               </View>
             )}
 
-            <View style={[styles.priceRow, styles.totalRow]}>
-              <Text style={styles.totalLabel}>Total a pagar:</Text>
-              <Text style={styles.totalValue}>${precios.precioFinal.toFixed(2)}</Text>
+            <View style={[localStyles.priceRow, localStyles.totalRow]}>
+              <Text style={[globalStyles.textHeading3, { color: theme.colors.text }]}>Total a pagar:</Text>
+              <Text style={[globalStyles.textHeading2, { color: theme.colors.primary }]}>${precios.precioFinal.toFixed(2)}</Text>
             </View>
           </View>
         )}
       </ScrollView>
 
       {/* Botón de continuar */}
-      <View style={styles.footer}>
+      <View style={localStyles.footer}>
         <TouchableOpacity
           style={[
-            styles.continueButton,
-            !asientoSeleccionado && styles.continueButtonDisabled
+            asientoSeleccionado ? globalStyles.buttonPrimary : globalStyles.buttonSecondary,
+            !asientoSeleccionado && { backgroundColor: theme.colors.textSecondary }
           ]}
           onPress={handleContinuarPago}
           disabled={!asientoSeleccionado}
         >
-          <Text style={styles.continueButtonText}>
+          <Text style={[
+            asientoSeleccionado ? globalStyles.buttonText : globalStyles.buttonTextSecondary,
+            !asientoSeleccionado && { color: '#fff' }
+          ]}>
             {asientoSeleccionado ? 'Continuar al Pago' : 'Selecciona un asiento'}
           </Text>
         </TouchableOpacity>
@@ -307,72 +327,21 @@ export default function PurchaseScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
+// Estilos locales específicos
+const localStyles = {
   backButton: {
     padding: 8,
   },
   placeholder: {
     width: 40,
   },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666',
-  },
-  section: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 16,
-  },
   infoRow: {
-    flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
-    gap: 12,
   },
   infoText: {
-    fontSize: 16,
-    color: '#333',
     flex: 1,
+    marginLeft: 12,
   },
   leyenda: {
     flexDirection: 'row',
@@ -388,17 +357,8 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 4,
   },
-  leyendaTexto: {
-    fontSize: 12,
-    color: '#666',
-  },
   omnibusContainer: {
     alignItems: 'center',
-  },
-  frenteTexto: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
   },
   mapaAsientos: {
     alignItems: 'center',
@@ -429,18 +389,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
   },
-  asientoDisponible: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#45a049',
-  },
-  asientoSeleccionado: {
-    backgroundColor: '#007AFF',
-    borderColor: '#0056b3',
-  },
-  asientoOcupado: {
-    backgroundColor: '#f44336',
-    borderColor: '#d32f2f',
-  },
   asientoTexto: {
     fontSize: 12,
     fontWeight: '600',
@@ -454,18 +402,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  priceLabel: {
-    fontSize: 16,
-    color: '#333',
-  },
-  priceValue: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
-  },
-  discountText: {
-    color: '#4CAF50',
-  },
   totalRow: {
     borderBottomWidth: 0,
     borderTopWidth: 2,
@@ -473,34 +409,15 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     marginTop: 8,
   },
-  totalLabel: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  totalValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#007AFF',
-  },
   footer: {
     padding: 16,
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  continueButton: {
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  continueButtonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  continueButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+};

@@ -6,30 +6,22 @@ export const useTicketsFilters = (tickets = []) => {
     destinoNombre: '',
     fechaDesde: '',
     fechaHasta: '',
-    estadoPasaje: '', // Para futuras implementaciones de estado
     sortBy: 'fechaViaje',
     sortDir: 'desc',
   });
 
-  // Aplicar filtros y ordenamiento
+  // Aplicar filtros y ordenamiento - IGUAL AL WEB
   const filteredAndSortedTickets = useMemo(() => {
     let processed = [...tickets];
 
-    // Aplicar filtros
+    // Aplicar filtros (copiado exactamente del web)
     processed = processed.filter(ticket => {
-      // Filtro por origen
       const origenMatch = filters.origenNombre ?
         ticket.origenViaje?.toLowerCase().includes(filters.origenNombre.toLowerCase()) : true;
 
-      // Filtro por destino
       const destinoMatch = filters.destinoNombre ?
         ticket.destinoViaje?.toLowerCase().includes(filters.destinoNombre.toLowerCase()) : true;
 
-      // Filtro por estado del pasaje (para futuras implementaciones)
-      const estadoMatch = filters.estadoPasaje ?
-        ticket.estado === filters.estadoPasaje : true;
-
-      // Filtro por rango de fechas
       let fechaMatch = true;
       if (ticket.fechaViaje) {
         const fechaTicket = new Date(ticket.fechaViaje);
@@ -50,37 +42,23 @@ export const useTicketsFilters = (tickets = []) => {
         fechaMatch = false;
       }
 
-      return origenMatch && destinoMatch && estadoMatch && fechaMatch;
+      return origenMatch && destinoMatch && fechaMatch;
     });
 
-    // Aplicar ordenamiento
+    // Aplicar ordenamiento (copiado exactamente del web)
     if (filters.sortBy) {
       processed.sort((a, b) => {
         let valA = a[filters.sortBy];
         let valB = b[filters.sortBy];
 
-        // Manejo especial para fechas
-        if (filters.sortBy === 'fechaViaje' || filters.sortBy === 'fechaCompra') {
-          valA = a[filters.sortBy] ? new Date(a[filters.sortBy]) : null;
-          valB = b[filters.sortBy] ? new Date(b[filters.sortBy]) : null;
-        }
-        // Manejo especial para strings
-        else if (typeof valA === 'string' && typeof valB === 'string') {
+        if (filters.sortBy === 'fechaViaje') {
+          valA = a.fechaViaje ? new Date(a.fechaViaje) : null;
+          valB = b.fechaViaje ? new Date(b.fechaViaje) : null;
+        } else if (typeof valA === 'string' && typeof valB === 'string') {
           valA = valA.toLowerCase();
           valB = valB.toLowerCase();
         }
-        // Manejo especial para números
-        else if (filters.sortBy === 'precio' || filters.sortBy === 'numeroAsiento') {
-          valA = parseFloat(valA) || 0;
-          valB = parseFloat(valB) || 0;
-        }
 
-        // Manejar valores null/undefined
-        if (valA === null && valB === null) return 0;
-        if (valA === null) return filters.sortDir === 'asc' ? 1 : -1;
-        if (valB === null) return filters.sortDir === 'asc' ? -1 : 1;
-
-        // Comparación normal
         if (valA < valB) return filters.sortDir === 'asc' ? -1 : 1;
         if (valA > valB) return filters.sortDir === 'asc' ? 1 : -1;
         return 0;
@@ -90,34 +68,32 @@ export const useTicketsFilters = (tickets = []) => {
     return processed;
   }, [tickets, filters]);
 
-  // Función para actualizar un filtro específico
+  // Función para actualizar filtros (igual al web)
   const updateFilter = (field, value) => {
     setFilters(prev => ({ ...prev, [field]: value }));
   };
 
-  // Función para cambiar ordenamiento
+  // Función para cambiar ordenamiento (igual al web)
   const toggleSort = (newSortBy) => {
-    setFilters(prev => ({
-      ...prev,
-      sortBy: newSortBy,
-      sortDir: prev.sortBy === newSortBy && prev.sortDir === 'asc' ? 'desc' : 'asc'
-    }));
+    setFilters(prev => {
+      const newSortDir = prev.sortBy === newSortBy && prev.sortDir === 'asc' ? 'desc' : 'asc';
+      return { ...prev, sortBy: newSortBy, sortDir: newSortDir };
+    });
   };
 
-  // Función para limpiar todos los filtros
+  // Limpiar filtros
   const clearFilters = () => {
     setFilters({
       origenNombre: '',
       destinoNombre: '',
       fechaDesde: '',
       fechaHasta: '',
-      estadoPasaje: '',
       sortBy: 'fechaViaje',
       sortDir: 'desc',
     });
   };
 
-  // Función para obtener indicador visual de ordenamiento
+  // Obtener indicador de ordenamiento (igual al web)
   const getSortIndicator = (columnName) => {
     if (filters.sortBy === columnName) {
       return filters.sortDir === 'asc' ? ' ▲' : ' ▼';
@@ -130,11 +106,10 @@ export const useTicketsFilters = (tickets = []) => {
     filters.origenNombre ||
     filters.destinoNombre ||
     filters.fechaDesde ||
-    filters.fechaHasta ||
-    filters.estadoPasaje
+    filters.fechaHasta
   );
 
-  // Obtener estadísticas de los filtros
+  // Estadísticas de filtros
   const filterStats = {
     total: tickets.length,
     filtered: filteredAndSortedTickets.length,
@@ -142,20 +117,18 @@ export const useTicketsFilters = (tickets = []) => {
     hasActiveFilters,
   };
 
-  // Obtener opciones únicas para filtros de selección
+  // Opciones únicas para sugerencias
   const uniqueOptions = useMemo(() => {
     const origenes = [...new Set(tickets.map(t => t.origenViaje).filter(Boolean))].sort();
     const destinos = [...new Set(tickets.map(t => t.destinoViaje).filter(Boolean))].sort();
-    const estados = [...new Set(tickets.map(t => t.estado).filter(Boolean))].sort();
 
     return {
       origenes,
       destinos,
-      estados,
     };
   }, [tickets]);
 
-  // Funciones de utilidad para formateo
+  // Formatters para mostrar datos
   const formatters = {
     date: (dateString) => {
       if (!dateString) return 'Fecha no disponible';
@@ -174,72 +147,12 @@ export const useTicketsFilters = (tickets = []) => {
 
     currency: (amount) => {
       if (!amount) return '$0';
-      return `${parseFloat(amount).toLocaleString('es-UY')}`;
-    },
-
-    dateRange: (fechaDesde, fechaHasta) => {
-      if (!fechaDesde && !fechaHasta) return '';
-      if (fechaDesde && !fechaHasta) return `Desde ${formatters.date(fechaDesde)}`;
-      if (!fechaDesde && fechaHasta) return `Hasta ${formatters.date(fechaHasta)}`;
-      return `${formatters.date(fechaDesde)} - ${formatters.date(fechaHasta)}`;
-    }
-  };
-
-  // Función para exportar filtros (para persistencia o compartir)
-  const exportFilters = () => {
-    return JSON.stringify(filters);
-  };
-
-  // Función para importar filtros
-  const importFilters = (filtersString) => {
-    try {
-      const importedFilters = JSON.parse(filtersString);
-      setFilters(prev => ({ ...prev, ...importedFilters }));
-      return true;
-    } catch (error) {
-      console.error('Error importing filters:', error);
-      return false;
-    }
-  };
-
-  // Función para aplicar filtros predefinidos
-  const applyPreset = (presetName) => {
-    const presets = {
-      today: {
-        fechaDesde: new Date().toISOString().split('T')[0],
-        fechaHasta: new Date().toISOString().split('T')[0],
-        sortBy: 'horaViaje',
-        sortDir: 'asc'
-      },
-      thisWeek: {
-        fechaDesde: new Date().toISOString().split('T')[0],
-        fechaHasta: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        sortBy: 'fechaViaje',
-        sortDir: 'asc'
-      },
-      thisMonth: {
-        fechaDesde: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-        fechaHasta: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0],
-        sortBy: 'fechaViaje',
-        sortDir: 'asc'
-      },
-      recent: {
-        sortBy: 'fechaCompra',
-        sortDir: 'desc'
-      },
-      expensive: {
-        sortBy: 'precio',
-        sortDir: 'desc'
-      }
-    };
-
-    if (presets[presetName]) {
-      setFilters(prev => ({ ...prev, ...presets[presetName] }));
+      return `$${parseFloat(amount).toLocaleString('es-UY')}`;
     }
   };
 
   return {
-    // Estados
+    // Estados principales
     filters,
     filteredAndSortedTickets,
     filterStats,
@@ -255,12 +168,7 @@ export const useTicketsFilters = (tickets = []) => {
     hasActiveFilters,
     formatters,
 
-    // Funciones avanzadas
-    exportFilters,
-    importFilters,
-    applyPreset,
-
-    // Setters directos para casos especiales
+    // Setter directo para casos especiales
     setFilters,
   };
 };

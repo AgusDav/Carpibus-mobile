@@ -2,72 +2,43 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { tripsService } from '../api/trips';
 import Loading from '../components/Loading';
+import { globalStyles } from '../styles/globalStyles';
+import { useTheme } from '../hooks/useTheme';
 
+// Función helper para formatear moneda
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('es-UY', {
+    style: 'currency',
+    currency: 'UYU',
+    minimumFractionDigits: 0,
+  }).format(amount);
+};
+
+// Función helper para formatear fecha
 const formatDate = (dateString) => {
-  if (!dateString) {
-    return 'Fecha N/A';
-  }
-
   try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) {
-      return 'Fecha inválida';
-    }
-
-    return date.toLocaleDateString('es-ES', {
+    return new Date(dateString).toLocaleDateString('es-UY', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric',
+      day: 'numeric'
     });
-  } catch (error) {
-    return 'Fecha inválida';
-  }
-};
-
-const formatTime = (timeString) => {
-  if (!timeString || typeof timeString !== 'string') {
-    return '--:--';
-  }
-
-  if (timeString.length < 5) {
-    return timeString;
-  }
-
-  return timeString.substring(0, 5);
-};
-
-const formatCurrency = (amount) => {
-  if (typeof amount !== 'number' || isNaN(amount)) {
-    return '$0';
-  }
-
-  return `$${amount.toLocaleString('es-ES')}`;
-};
-
-// Función auxiliar para extraer fecha del LocalDateTime
-const extractDateFromDateTime = (dateTimeString) => {
-  if (!dateTimeString) return null;
-  try {
-    return dateTimeString.split('T')[0]; // "2024-01-15T10:30:00" -> "2024-01-15"
   } catch {
-    return null;
+    return dateString;
   }
 };
 
-// Función auxiliar para extraer hora del LocalDateTime
-const extractTimeFromDateTime = (dateTimeString) => {
-  if (!dateTimeString) return null;
+// Función helper para formatear hora
+const formatTime = (timeString) => {
   try {
-    const timePart = dateTimeString.split('T')[1]; // "2024-01-15T10:30:00" -> "10:30:00"
+    const timePart = timeString?.split('T')[1] || timeString;
     return timePart ? timePart.substring(0, 5) : null; // "10:30:00" -> "10:30"
   } catch {
     return null;
@@ -78,6 +49,7 @@ export default function TripDetailScreen({ route, navigation }) {
   const { tripId } = route.params;
   const [tripDetail, setTripDetail] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const theme = useTheme();
 
   useEffect(() => {
     loadTripDetail();
@@ -102,14 +74,20 @@ export default function TripDetailScreen({ route, navigation }) {
 
   if (!tripDetail || !tripDetail.viaje) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>No se pudo cargar el detalle del viaje</Text>
+      <SafeAreaView style={globalStyles.safeArea}>
+        <View style={[globalStyles.centerContent, globalStyles.screenPadding]}>
+          <Icon name="alert-circle-outline" size={64} color={theme.colors.error} />
+          <Text style={[globalStyles.textHeading2, globalStyles.marginBottomMd, { color: theme.colors.error }]}>
+            Error al cargar
+          </Text>
+          <Text style={[globalStyles.textBody, globalStyles.marginBottomLg, { textAlign: 'center' }]}>
+            No se pudo cargar el detalle del viaje
+          </Text>
           <TouchableOpacity
-            style={styles.backButton}
+            style={globalStyles.buttonSecondary}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.backButtonText}>Volver</Text>
+            <Text style={globalStyles.buttonTextSecondary}>Volver</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -119,9 +97,9 @@ export default function TripDetailScreen({ route, navigation }) {
   // Mapear la estructura de ViajeDetalleConAsientosDTO
   const viaje = {
     id: tripDetail.id,
-    fecha: tripDetail.fecha, // Este viene como LocalDate
-    horaSalida: tripDetail.horaSalida, // Este viene como LocalTime
-    horaLlegada: tripDetail.horaLlegada, // Este viene como LocalTime
+    fecha: tripDetail.fecha,
+    horaSalida: tripDetail.horaSalida,
+    horaLlegada: tripDetail.horaLlegada,
     origen: { nombre: tripDetail.origenNombre },
     destino: { nombre: tripDetail.destinoNombre },
     precio: tripDetail.precio,
@@ -135,115 +113,133 @@ export default function TripDetailScreen({ route, navigation }) {
   const asientosDisponibles = tripDetail.asientosDisponibles || 0;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.headerCard}>
-          <View style={styles.route}>
-            <Text style={styles.locationText}>
+    <SafeAreaView style={globalStyles.safeArea}>
+      <ScrollView style={globalStyles.container}>
+        {/* Header Card con ruta y precio */}
+        <View style={[globalStyles.card, localStyles.headerCard]}>
+          <View style={[globalStyles.row, globalStyles.centerContent, globalStyles.marginBottomMd]}>
+            <Text style={[globalStyles.textHeading2, globalStyles.flex1, { textAlign: 'center' }]}>
               {viaje.origen.nombre}
             </Text>
-            <Icon name="arrow-forward" size={24} color="#666" />
-            <Text style={styles.locationText}>
+            <Icon name="arrow-forward" size={24} color={theme.colors.textSecondary} style={{ marginHorizontal: theme.spacing.md }} />
+            <Text style={[globalStyles.textHeading2, globalStyles.flex1, { textAlign: 'center' }]}>
               {viaje.destino.nombre}
             </Text>
           </View>
-          <Text style={styles.priceText}>
+          <Text style={[globalStyles.textHeading1, { color: theme.colors.primary, textAlign: 'center' }]}>
             {formatCurrency(viaje.precio)}
           </Text>
         </View>
 
-        <View style={styles.detailCard}>
-          <Text style={styles.sectionTitle}>Información del Viaje</Text>
+        {/* Información del viaje */}
+        <View style={globalStyles.card}>
+          <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
+            Información del Viaje
+          </Text>
 
-          <View style={styles.detailRow}>
-            <Icon name="calendar-outline" size={20} color="#666" />
-            <View style={styles.detailInfo}>
-              <Text style={styles.detailLabel}>Fecha de Salida</Text>
-              <Text style={styles.detailValue}>
+          {/* Fecha de salida */}
+          <View style={[globalStyles.row, localStyles.detailRow]}>
+            <Icon name="calendar-outline" size={20} color={theme.colors.textSecondary} />
+            <View style={localStyles.detailInfo}>
+              <Text style={globalStyles.textCaption}>Fecha de Salida</Text>
+              <Text style={globalStyles.textBody}>
                 {formatDate(viaje.fecha)}
               </Text>
             </View>
           </View>
 
-          <View style={styles.detailRow}>
-            <Icon name="time-outline" size={20} color="#666" />
-            <View style={styles.detailInfo}>
-              <Text style={styles.detailLabel}>Horarios</Text>
-              <Text style={styles.detailValue}>
+          {/* Horarios */}
+          <View style={[globalStyles.row, localStyles.detailRow]}>
+            <Icon name="time-outline" size={20} color={theme.colors.textSecondary} />
+            <View style={localStyles.detailInfo}>
+              <Text style={globalStyles.textCaption}>Horarios</Text>
+              <Text style={globalStyles.textBody}>
                 Salida: {formatTime(viaje.horaSalida)} - Llegada: {formatTime(viaje.horaLlegada)}
               </Text>
             </View>
           </View>
 
-          <View style={styles.detailRow}>
-            <Icon name="location-outline" size={20} color="#666" />
-            <View style={styles.detailInfo}>
-              <Text style={styles.detailLabel}>Ruta</Text>
-              <Text style={styles.detailValue}>
+          {/* Ruta */}
+          <View style={[globalStyles.row, localStyles.detailRow]}>
+            <Icon name="location-outline" size={20} color={theme.colors.textSecondary} />
+            <View style={localStyles.detailInfo}>
+              <Text style={globalStyles.textCaption}>Ruta</Text>
+              <Text style={globalStyles.textBody}>
                 {viaje.origen.nombre} → {viaje.destino.nombre}
               </Text>
             </View>
           </View>
 
-          <View style={styles.detailRow}>
-            <Icon name="bus-outline" size={20} color="#666" />
-            <View style={styles.detailInfo}>
-              <Text style={styles.detailLabel}>Ómnibus</Text>
-              <Text style={styles.detailValue}>
+          {/* Ómnibus */}
+          <View style={[globalStyles.row, localStyles.detailRow]}>
+            <Icon name="bus-outline" size={20} color={theme.colors.textSecondary} />
+            <View style={localStyles.detailInfo}>
+              <Text style={globalStyles.textCaption}>Ómnibus</Text>
+              <Text style={globalStyles.textBody}>
                 {viaje.omnibus.matricula} (Capacidad: {viaje.omnibus.capacidad} asientos)
               </Text>
             </View>
           </View>
 
-          <View style={styles.detailRow}>
-            <Icon name="people-outline" size={20} color="#666" />
-            <View style={styles.detailInfo}>
-              <Text style={styles.detailLabel}>Disponibilidad</Text>
+          {/* Disponibilidad */}
+          <View style={[globalStyles.row, localStyles.detailRow]}>
+            <Icon name="people-outline" size={20} color={theme.colors.textSecondary} />
+            <View style={localStyles.detailInfo}>
+              <Text style={globalStyles.textCaption}>Disponibilidad</Text>
               <Text style={[
-                styles.detailValue,
-                { color: asientosDisponibles > 0 ? '#16a34a' : '#dc2626' }
+                globalStyles.textBody,
+                {
+                  color: asientosDisponibles > 0 ? theme.colors.success : theme.colors.error,
+                  fontWeight: '600'
+                }
               ]}>
                 {asientosDisponibles} asientos disponibles
               </Text>
             </View>
           </View>
 
-          <View style={styles.detailRow}>
-            <Icon name="information-circle-outline" size={20} color="#666" />
-            <View style={styles.detailInfo}>
-              <Text style={styles.detailLabel}>Estado</Text>
-              <Text style={styles.detailValue}>
+          {/* Estado */}
+          <View style={[globalStyles.row, localStyles.detailRow]}>
+            <Icon name="information-circle-outline" size={20} color={theme.colors.textSecondary} />
+            <View style={localStyles.detailInfo}>
+              <Text style={globalStyles.textCaption}>Estado</Text>
+              <Text style={globalStyles.textBody}>
                 {viaje.estado}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Mostrar información de asientos ocupados si está disponible */}
+        {/* Asientos ocupados */}
         {tripDetail.numerosAsientoOcupados && tripDetail.numerosAsientoOcupados.length > 0 && (
-          <View style={styles.detailCard}>
-            <Text style={styles.sectionTitle}>Asientos Ocupados</Text>
-            <Text style={styles.occupiedSeats}>
-              {tripDetail.numerosAsientoOcupados.sort((a, b) => a - b).join(', ')}
+          <View style={globalStyles.card}>
+            <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
+              Asientos Ocupados
             </Text>
+            <View style={localStyles.occupiedSeatsContainer}>
+              <Text style={[globalStyles.textBody, { color: theme.colors.error, textAlign: 'center' }]}>
+                {tripDetail.numerosAsientoOcupados.sort((a, b) => a - b).join(', ')}
+              </Text>
+            </View>
           </View>
         )}
       </ScrollView>
 
-      <View style={styles.footer}>
+      {/* Footer con botones */}
+      <View style={localStyles.footer}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[globalStyles.buttonSecondary, globalStyles.flex1, { marginRight: theme.spacing.sm }]}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>Volver</Text>
+          <Text style={globalStyles.buttonTextSecondary}>Volver</Text>
         </TouchableOpacity>
 
         {asientosDisponibles > 0 && (
           <TouchableOpacity
-            style={styles.bookButton}
+            style={[globalStyles.buttonPrimary, { flex: 2 }]}
             onPress={() => navigation.navigate('Purchase', { tripId: viaje.id })}
           >
-            <Text style={styles.bookButtonText}>Reservar Asiento</Text>
+            <Text style={globalStyles.buttonText}>Reservar Asiento</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -251,74 +247,13 @@ export default function TripDetailScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#dc2626',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
+// Estilos locales específicos
+const localStyles = {
   headerCard: {
-    backgroundColor: '#fff',
-    padding: 20,
-    margin: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  route: {
-    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  locationText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    flex: 1,
-  },
-  priceText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#2563eb',
-    textAlign: 'center',
-  },
-  detailCard: {
-    backgroundColor: '#fff',
-    margin: 16,
-    marginTop: 0,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 16,
+    paddingVertical: 24,
   },
   detailRow: {
-    flexDirection: 'row',
     alignItems: 'flex-start',
     marginBottom: 16,
   },
@@ -326,23 +261,12 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
   },
-  detailLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  detailValue: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
-  },
-  occupiedSeats: {
-    fontSize: 16,
-    color: '#dc2626',
+  occupiedSeatsContainer: {
     backgroundColor: '#fef2f2',
-    padding: 12,
+    padding: 16,
     borderRadius: 8,
-    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: '#fecaca',
   },
   footer: {
     flexDirection: 'row',
@@ -350,33 +274,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  backButton: {
-    backgroundColor: '#f3f4f6',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginRight: 8,
-    flex: 1,
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#374151',
-    textAlign: 'center',
-  },
-  bookButton: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginLeft: 8,
-    flex: 2,
-  },
-  bookButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    textAlign: 'center',
-  },
-});
+};

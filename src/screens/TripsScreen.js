@@ -4,7 +4,6 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
-  StyleSheet,
   RefreshControl,
   SafeAreaView,
   Alert,
@@ -12,6 +11,8 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { tripsService } from '../api/trips';
+import { globalStyles } from '../styles/globalStyles';
+import { useTheme } from '../hooks/useTheme';
 
 // Componentes
 import TripCard from '../components/TripCard';
@@ -22,56 +23,53 @@ export default function TripsScreen({ navigation }) {
   const [trips, setTrips] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentParams, setCurrentParams] = useState({});
+  const theme = useTheme();
 
   useEffect(() => {
     // Cargar viajes al iniciar la pantalla
     searchTrips();
 
     // DEBUG: Imprimir JWT y datos de usuario
-    const debugAuth = async () => {
-      try {
-        const token = await AsyncStorage.getItem('auth_token');
-        const userData = await AsyncStorage.getItem('user_data');
-
-        console.log('=== DEBUG AUTH DATA EN TRIPS SCREEN ===');
-        console.log('JWT Token:', token);
-        console.log('User Data from AsyncStorage:', userData);
-
-        if (token) {
-          try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            console.log('=== JWT PAYLOAD DECODIFICADO ===');
-            console.log(JSON.stringify(payload, null, 2));
-            console.log('Token expira:', new Date(payload.exp * 1000).toLocaleString());
-            console.log('Authorities:', payload.authorities);
-            console.log('User ID:', payload.userId);
-            console.log('Nombre:', payload.nombre);
-          } catch (e) {
-            console.log('Error decodificando JWT:', e);
-          }
-        } else {
-          console.log('❌ NO HAY TOKEN EN ASYNCSTORAGE');
-        }
-      } catch (error) {
-        console.error('Error en debug auth:', error);
-      }
-    };
-
     debugAuth();
   }, []);
 
-  const searchTrips = async (params = {}) => {
+  const debugAuth = async () => {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const userData = await AsyncStorage.getItem('user_data');
+
+      console.log('=== DEBUG AUTH DATA EN TRIPS SCREEN ===');
+      console.log('JWT Token:', token);
+      console.log('User Data from AsyncStorage:', userData);
+
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          console.log('📄 PAYLOAD:', JSON.stringify(payload, null, 2));
+        } catch (error) {
+          console.error('Error al decodificar JWT:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error en debugAuth:', error);
+    }
+  };
+
+  const searchTrips = async () => {
     try {
       setIsLoading(true);
-      setCurrentParams(params);
-      const results = await tripsService.searchTrips(params);
-      setTrips(results || []);
+      const response = await tripsService.searchTrips(currentParams);
+      setTrips(response || []);
     } catch (error) {
-      console.error('Error searching trips:', error);
-      setTrips([]);
+      console.error('Error al buscar viajes:', error);
+      Alert.alert('Error', 'No se pudieron cargar los viajes');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleRefresh = () => {
+    searchTrips();
   };
 
   const handleTripPress = (trip) => {
@@ -79,43 +77,7 @@ export default function TripsScreen({ navigation }) {
   };
 
   const handleBookPress = (trip) => {
-    // ✅ CAMBIO PRINCIPAL: Pasar tanto tripId como tripData
-    navigation.navigate('Purchase', {
-      tripId: trip.id,
-      tripData: trip  // ← Esto es lo que necesitaba agregar
-    });
-  };
-
-  const handleRefresh = () => {
-    searchTrips(currentParams);
-  };
-
-  // Función de debug manual
-  const debugJWT = async () => {
-    try {
-      const token = await AsyncStorage.getItem('auth_token');
-      const userData = await AsyncStorage.getItem('user_data');
-
-      console.log('🔑 TOKEN COMPLETO:', token);
-      console.log('👤 USER DATA:', userData);
-
-      if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        console.log('📄 PAYLOAD:', JSON.stringify(payload, null, 2));
-
-        Alert.alert('JWT Info', `
-            Usuario: ${payload.nombre}
-            ID: ${payload.userId}
-            Rol: ${payload.authorities?.[0]}
-            Expira: ${new Date(payload.exp * 1000).toLocaleString()}
-        `.trim());
-      } else {
-        Alert.alert('Error', 'No se encontró token JWT');
-      }
-    } catch (error) {
-      console.error('Error en debugJWT:', error);
-      Alert.alert('Error', 'Error al leer JWT: ' + error.message);
-    }
+    navigation.navigate('Purchase', { tripId: trip.id });
   };
 
   const renderTrip = ({ item }) => (
@@ -131,24 +93,31 @@ export default function TripsScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Viajes Disponibles</Text>
+    <SafeAreaView style={globalStyles.safeArea}>
+      {/* Header */}
+      <View style={[globalStyles.header, globalStyles.row, globalStyles.spaceBetween]}>
+        <Text style={globalStyles.headerTitle}>Viajes Disponibles</Text>
         <TouchableOpacity
-          style={styles.filterButton}
+          style={localStyles.filterButton}
           onPress={() => {/* TODO: Implementar modal de filtros */}}
         >
-          <Icon name="filter" size={24} color="#2563eb" />
+          <Icon name="filter" size={24} color={theme.colors.primary} />
         </TouchableOpacity>
       </View>
 
+      {/* Lista de viajes */}
       <FlatList
         data={trips}
         renderItem={renderTrip}
         keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={globalStyles.screenPadding}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
         }
         ListEmptyComponent={
           !isLoading ? (
@@ -156,80 +125,20 @@ export default function TripsScreen({ navigation }) {
               icon="bus-outline"
               title="No hay viajes disponibles"
               description="No se encontraron viajes. Intenta actualizar o cambiar los filtros."
-              actionTitle="Actualizar"
-              onAction={handleRefresh}
             />
           ) : null
         }
+        showsVerticalScrollIndicator={false}
       />
-
-      {/* Botón de debug flotante en la esquina inferior */}
-      <TouchableOpacity
-        style={styles.debugButtonFloat}
-        onPress={debugJWT}
-      >
-        <Text style={styles.debugButtonText}>🔍</Text>
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  debugButton: {
-    backgroundColor: '#ff6b6b',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  debugButtonTop: {
-    backgroundColor: '#ff6b6b',
-    padding: 12,
+// Estilos locales específicos
+const localStyles = {
+  filterButton: {
+    padding: 8,
     borderRadius: 8,
-    margin: 16,
-    alignItems: 'center',
+    backgroundColor: 'rgba(0, 123, 255, 0.1)',
   },
-  debugButtonFloat: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    backgroundColor: '#ff6b6b',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  debugButtonText: {
-    fontSize: 16,
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  listContainer: {
-    padding: 16,
-  },
-});
+};

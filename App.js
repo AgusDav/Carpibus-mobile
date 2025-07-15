@@ -8,12 +8,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 // Context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 
-// 🔥 IMPORTAR SessionManager
-import SessionManager from './src/utils/SessionManager';
-
-// 🔥 IMPORTAR Firebase Service y Navigation Service
-import FirebaseService from './src/services/FirebaseService';
-import { NavigationService } from './src/services/NavigationService';
+// 🔥 IMPORTAR TEMA PARA LA NAVEGACIÓN
+import { theme } from './src/styles/theme';
 
 // Screens
 import LoginScreen from './src/screens/auth/LoginScreen';
@@ -50,25 +46,63 @@ function TabNavigator() {
 
           return <Icon name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#2c5530',
-        tabBarInactiveTintColor: 'gray',
+
+        // 🎨 ESTILOS CENTRALIZADOS DESDE EL TEMA
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textSecondary,
+
+        // 🎨 ESTILOS DE LA BARRA DE PESTAÑAS
+        tabBarStyle: {
+          backgroundColor: theme.colors.surface,
+          borderTopWidth: 1,
+          borderTopColor: theme.colors.border,
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 65,
+          ...theme.shadows.md,
+        },
+
+        // 🎨 ESTILOS DE LAS ETIQUETAS
+        tabBarLabelStyle: {
+          fontSize: theme.typography.small.fontSize,
+          fontWeight: '600',
+          marginTop: 2,
+        },
+
+        // 🎨 ESTILOS DE LOS ELEMENTOS
+        tabBarItemStyle: {
+          paddingVertical: 4,
+        },
+
+        // 🎨 CONFIGURACIONES ADICIONALES
         headerShown: false,
+        tabBarHideOnKeyboard: true, // Ocultar en teclado
+        tabBarAllowFontScaling: false, // Evitar escalado de fuente
       })}
     >
       <Tab.Screen
         name="Viajes"
         component={TripsScreen}
-        options={{ title: 'Buscar Viajes' }}
+        options={{
+          title: 'Buscar Viajes',
+          tabBarLabel: 'Viajes',
+        }}
       />
       <Tab.Screen
         name="Mis Pasajes"
         component={TicketsScreen}
-        options={{ title: 'Mis Pasajes' }}
+        options={{
+          title: 'Mis Pasajes',
+          tabBarLabel: 'Mis Pasajes',
+        }}
       />
       <Tab.Screen
         name="Perfil"
         component={ProfileScreen}
-        options={{ title: 'Mi Perfil' }}
+        options={{
+          title: 'Mi Perfil',
+          tabBarLabel: 'Perfil',
+        }}
       />
     </Tab.Navigator>
   );
@@ -79,7 +113,9 @@ function AuthStack() {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        animation: 'slide_from_right'
+        animation: 'slide_from_right',
+        // 🎨 ESTILOS CENTRALIZADOS PARA STACK DE AUTH
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <Stack.Screen name="Login" component={LoginScreen} />
@@ -94,7 +130,9 @@ function MainStack() {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        animation: 'slide_from_right'
+        animation: 'slide_from_right',
+        // 🎨 ESTILOS CENTRALIZADOS PARA STACK PRINCIPAL
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <Stack.Screen name="Home" component={TabNavigator} />
@@ -104,8 +142,17 @@ function MainStack() {
         options={{
           headerShown: true,
           title: 'Detalles del Viaje',
-          headerStyle: { backgroundColor: '#2c5530' },
-          headerTintColor: '#fff',
+          // 🎨 HEADER CON COLORES DEL TEMA
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+            elevation: theme.shadows.md.elevation,
+            shadowOpacity: theme.shadows.md.shadowOpacity,
+          },
+          headerTintColor: theme.colors.surface,
+          headerTitleStyle: {
+            fontWeight: '600',
+            fontSize: theme.typography.h3.fontSize,
+          },
         }}
       />
       <Stack.Screen
@@ -131,8 +178,17 @@ function MainStack() {
         options={{
           headerShown: true,
           title: 'Configuración',
-          headerStyle: { backgroundColor: '#2c5530' },
-          headerTintColor: '#fff',
+          // 🎨 HEADER CON COLORES DEL TEMA
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+            elevation: theme.shadows.md.elevation,
+            shadowOpacity: theme.shadows.md.shadowOpacity,
+          },
+          headerTintColor: theme.colors.surface,
+          headerTitleStyle: {
+            fontWeight: '600',
+            fontSize: theme.typography.h3.fontSize,
+          },
         }}
       />
       <Stack.Screen
@@ -141,8 +197,17 @@ function MainStack() {
         options={{
           headerShown: true,
           title: 'Ayuda',
-          headerStyle: { backgroundColor: '#2c5530' },
-          headerTintColor: '#fff',
+          // 🎨 HEADER CON COLORES DEL TEMA
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+            elevation: theme.shadows.md.elevation,
+            shadowOpacity: theme.shadows.md.shadowOpacity,
+          },
+          headerTintColor: theme.colors.surface,
+          headerTitleStyle: {
+            fontWeight: '600',
+            fontSize: theme.typography.h3.fontSize,
+          },
         }}
       />
       <Stack.Screen
@@ -151,8 +216,17 @@ function MainStack() {
         options={{
           headerShown: true,
           title: 'Acerca de',
-          headerStyle: { backgroundColor: '#2c5530' },
-          headerTintColor: '#fff',
+          // 🎨 HEADER CON COLORES DEL TEMA
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+            elevation: theme.shadows.md.elevation,
+            shadowOpacity: theme.shadows.md.shadowOpacity,
+          },
+          headerTintColor: theme.colors.surface,
+          headerTitleStyle: {
+            fontWeight: '600',
+            fontSize: theme.typography.h3.fontSize,
+          },
         }}
       />
       <Stack.Screen
@@ -169,75 +243,19 @@ function MainStack() {
 }
 
 function AppNavigator() {
-  const { isAuthenticated, loading, logout } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const navigationRef = useRef();
-
-  // 🔥 CONFIGURAR SessionManager Y Firebase CUANDO EL USUARIO ESTÉ AUTENTICADO
-  useEffect(() => {
-    if (isAuthenticated && navigationRef.current) {
-      console.log('🔧 Configurando SessionManager globalmente...');
-
-      // Configurar navegación
-      SessionManager.setNavigation(navigationRef.current);
-      NavigationService.setNavigator(navigationRef.current);
-
-      // Configurar callback de logout personalizado
-      SessionManager.setLogoutCallback(logout);
-
-      // Iniciar verificación de sesión
-      SessionManager.startSessionCheck();
-
-      // 🔥 INICIALIZAR Firebase Service
-      console.log('🔥 Inicializando Firebase Service...');
-      FirebaseService.initialize();
-
-      // Cleanup al desmontar o cuando cambie el estado de autenticación
-      return () => {
-        SessionManager.stopSessionCheck();
-      };
-    } else if (!isAuthenticated) {
-      // Detener verificación si no está autenticado
-      SessionManager.stopSessionCheck();
-
-      // 🔥 LIMPIAR token FCM al hacer logout
-      console.log('🗑️ Limpiando token FCM por logout...');
-      FirebaseService.clearTokenFromBackend();
-    }
-  }, [isAuthenticated, logout]);
-
-  // 🔥 EFECTO ADICIONAL PARA RE-REGISTRAR TOKEN DESPUÉS DEL LOGIN
-  useEffect(() => {
-    if (isAuthenticated) {
-      // Dar tiempo para que se configure la autenticación
-      const timer = setTimeout(() => {
-        console.log('🔄 Re-registrando token FCM después del login...');
-        FirebaseService.refreshToken();
-      }, 1000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [isAuthenticated]);
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2c5530" />
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
   return (
-    <NavigationContainer
-      ref={navigationRef}
-      onReady={() => {
-        // 🔥 ASEGURAR QUE SessionManager Y NavigationService SE CONFIGUREN CUANDO LA NAVEGACIÓN ESTÉ LISTA
-        if (isAuthenticated) {
-          SessionManager.setNavigation(navigationRef.current);
-          NavigationService.setNavigator(navigationRef.current);
-          console.log('📱 Navegación lista, servicios configurados');
-        }
-      }}
-    >
+    <NavigationContainer ref={navigationRef}>
       {isAuthenticated ? <MainStack /> : <AuthStack />}
     </NavigationContainer>
   );
@@ -256,6 +274,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
   },
 });

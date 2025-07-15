@@ -356,7 +356,7 @@ export default function TicketsScreen({ navigation }) {
 
       {/* Header */}
       <View style={[globalStyles.header, globalStyles.row, globalStyles.spaceBetween]}>
-        <Text style={globalStyles.headerTitle}>Mis Pasajes Comprados</Text>
+        <Text style={globalStyles.headerTitle}>Mis Pasajes</Text>
         <View style={[globalStyles.row, { alignItems: 'center', gap: 16 }]}>
           <TouchableOpacity
             style={[

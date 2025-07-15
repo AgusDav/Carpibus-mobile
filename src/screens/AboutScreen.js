@@ -60,15 +60,6 @@ export default function AboutScreen({ navigation }) {
 
   return (
     <SafeAreaView style={globalStyles.safeArea}>
-      {/* Header */}
-      <View style={[globalStyles.header, globalStyles.row, globalStyles.spaceBetween]}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-        <Text style={globalStyles.headerTitle}>Acerca de</Text>
-        <View style={{ width: 24 }} />
-      </View>
-
       <ScrollView
         style={globalStyles.container}
         contentContainerStyle={globalStyles.screenPadding}

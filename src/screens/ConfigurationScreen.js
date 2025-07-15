@@ -13,6 +13,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
+import NotificationStatus from '../components/NotificationStatus';
 
 export default function ConfigurationScreen({ navigation }) {
   const { user: contextUser, updateUser } = useAuth();
@@ -203,14 +204,6 @@ export default function ConfigurationScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Configuración</Text>
-        <View style={{ width: 24 }} />
-      </View>
-
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Sección de Datos Personales */}
         <View style={styles.section}>
@@ -439,6 +432,9 @@ export default function ConfigurationScreen({ navigation }) {
             )}
           </View>
         </View>
+
+        {/* Componente de estado de notificaciones */}
+              <NotificationStatus />
       </ScrollView>
     </SafeAreaView>
   );

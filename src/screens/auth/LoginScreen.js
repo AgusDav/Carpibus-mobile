@@ -4,17 +4,20 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   Alert,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../../context/AuthContext';
+import { globalStyles } from '../../styles/globalStyles';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function LoginScreen({ navigation }) {
   const { login, isLoading } = useAuth();
+  const theme = useTheme();
   const [formData, setFormData] = useState({
     email: '',
     contrasenia: '',
@@ -68,82 +71,119 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={globalStyles.safeArea}>
       <KeyboardAvoidingView
-        style={styles.keyboardView}
+        style={globalStyles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.content}>
-          <Text style={styles.title}>Iniciar Sesión</Text>
-          <Text style={styles.subtitle}>
+        <View style={[globalStyles.centerContent, globalStyles.screenPadding]}>
+          {/* Logo/Header */}
+          <View style={[globalStyles.centerContent, localStyles.logoSection]}>
+            {/* Reemplaza el ícono del bus con tu logo */}
+            <Image
+              source={require('../../assets/images/logo.png')} // 👈 Agrega tu logo aquí
+              style={localStyles.logo}
+              resizeMode="contain"
+            />
+            {/* Fallback en caso de que no tengas el logo aún */}
+            {/* <Icon name="bus" size={64} color={theme.colors.primary} /> */}
+
+            <Text style={[globalStyles.textHeading1, { color: theme.colors.primary, textAlign: 'center' }]}>
+              Carpibus
+            </Text>
+          </View>
+
+          <Text style={[globalStyles.textHeading2, { textAlign: 'center', marginBottom: 8 }]}>
+            Iniciar Sesión
+          </Text>
+          <Text style={[globalStyles.textCaption, { textAlign: 'center', marginBottom: 32 }]}>
             Ingresa tus credenciales para acceder a tu cuenta
           </Text>
 
-          {/* Email Input */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email *</Text>
+          {/* Email Input - Ancho completo */}
+          <View style={[globalStyles.marginBottomMd, localStyles.fullWidthContainer]}>
+            <Text style={[globalStyles.textCaption, { fontWeight: '600', marginBottom: 8 }]}>
+              Email *
+            </Text>
             <TextInput
-              style={[styles.input, errors.email && styles.inputError]}
+              style={[
+                globalStyles.input,
+                localStyles.fullWidthInput,
+                errors.email && globalStyles.inputError
+              ]}
               placeholder="ejemplo@correo.com"
+              placeholderTextColor={theme.colors.placeholder}
               value={formData.email}
               onChangeText={handleEmailChange}
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
             />
-            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+            {errors.email && <Text style={globalStyles.textError}>{errors.email}</Text>}
           </View>
 
-          {/* Password Input con toggle */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Contraseña *</Text>
-            <View style={styles.passwordContainer}>
+          {/* Password Input con toggle - Ancho completo */}
+          <View style={[globalStyles.marginBottomLg, localStyles.fullWidthContainer]}>
+            <Text style={[globalStyles.textCaption, { fontWeight: '600', marginBottom: 8 }]}>
+              Contraseña *
+            </Text>
+            <View style={[
+              localStyles.passwordContainer,
+              localStyles.fullWidthInput,
+              errors.contrasenia && { borderColor: theme.colors.error }
+            ]}>
               <TextInput
-                style={[
-                  styles.passwordInput,
-                  errors.contrasenia && styles.inputError
-                ]}
+                style={localStyles.passwordInput}
                 placeholder="Ingresa tu contraseña"
+                placeholderTextColor={theme.colors.placeholder}
                 value={formData.contrasenia}
                 onChangeText={handlePasswordChange}
                 secureTextEntry={!showPassword}
                 autoComplete="password"
               />
               <TouchableOpacity
-                style={styles.eyeButton}
+                style={localStyles.eyeButton}
                 onPress={() => setShowPassword(!showPassword)}
               >
                 <Icon
                   name={showPassword ? 'eye-off' : 'eye'}
                   size={24}
-                  color="#666"
+                  color={theme.colors.textSecondary}
                 />
               </TouchableOpacity>
             </View>
-            {errors.contrasenia && <Text style={styles.errorText}>{errors.contrasenia}</Text>}
+            {errors.contrasenia && <Text style={globalStyles.textError}>{errors.contrasenia}</Text>}
           </View>
 
           <TouchableOpacity
-            style={[styles.button, isLoading && styles.buttonDisabled]}
+            style={[
+              globalStyles.buttonPrimary,
+              localStyles.fullWidthButton,
+              isLoading && { opacity: 0.7 }
+            ]}
             onPress={handleSubmit}
             disabled={isLoading}
           >
-            <Text style={styles.buttonText}>
+            <Text style={globalStyles.buttonText}>
               {isLoading ? 'Cargando...' : 'Iniciar Sesión'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => navigation.navigate('ForgotPassword')}
-            style={styles.linkButton}
+            style={localStyles.linkButton}
           >
-            <Text style={styles.linkText}>¿Olvidaste tu contraseña?</Text>
+            <Text style={[globalStyles.textBody, { color: theme.colors.primary }]}>
+              ¿Olvidaste tu contraseña?
+            </Text>
           </TouchableOpacity>
 
-          <View style={styles.registerContainer}>
-            <Text style={styles.registerText}>¿No tienes cuenta? </Text>
+          <View style={localStyles.registerContainer}>
+            <Text style={globalStyles.textBody}>¿No tienes cuenta? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.registerLink}>Regístrate</Text>
+              <Text style={[globalStyles.textBody, { color: theme.colors.primary, fontWeight: '600' }]}>
+                Regístrate
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -152,66 +192,32 @@ export default function LoginScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 8,
-    color: '#000',
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    color: '#666',
+// Estilos locales específicos
+const localStyles = {
+  logoSection: {
     marginBottom: 32,
   },
-  inputContainer: {
-    marginBottom: 20,
+  logo: {
+    width: 100,
+    height: 100,
+    marginBottom: 16,
   },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#000',
+  fullWidthContainer: {
+    width: '100%',
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: '#f9f9f9',
+  fullWidthInput: {
+    width: '100%',
   },
-  inputError: {
-    borderColor: '#e74c3c',
+  fullWidthButton: {
+    width: '100%',
   },
-  errorText: {
-    color: '#e74c3c',
-    fontSize: 14,
-    marginTop: 4,
-  },
-  // Estilos para el contenedor de contraseña con toggle
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#fff',
   },
   passwordInput: {
     flex: 1,
@@ -227,40 +233,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  button: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   linkButton: {
     alignItems: 'center',
+    marginTop: 16,
     marginBottom: 20,
-  },
-  linkText: {
-    color: '#2563eb',
-    fontSize: 16,
   },
   registerContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
   },
-  registerText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  registerLink: {
-    fontSize: 16,
-    color: '#2563eb',
-    fontWeight: '600',
-  },
-});
+};

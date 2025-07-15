@@ -4,13 +4,16 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   Alert,
   SafeAreaView,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { authService } from '../../api/auth';
+import { globalStyles } from '../../styles/globalStyles';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function ForgotPasswordScreen({ navigation }) {
+  const theme = useTheme();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -54,121 +57,141 @@ export default function ForgotPasswordScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Recuperar Contraseña</Text>
-        <Text style={styles.subtitle}>
-          Ingresa tu email y te enviaremos un enlace para recuperar tu contraseña
-        </Text>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={[styles.input, error && styles.inputError]}
-            value={email}
-            onChangeText={(value) => {
-              setEmail(value);
-              if (error) setError('');
-            }}
-            placeholder="ejemplo@correo.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
-          />
-          {error && <Text style={styles.errorText}>{error}</Text>}
+    <SafeAreaView style={globalStyles.safeArea}>
+      <View style={[globalStyles.centerContent, globalStyles.screenPadding]}>
+        {/* Header con ícono */}
+        <View style={[globalStyles.centerContent, localStyles.headerSection]}>
+          <View style={localStyles.iconContainer}>
+            <Icon name="mail" size={48} color={theme.colors.primary} />
+          </View>
+          <Text style={[globalStyles.textHeading1, { textAlign: 'center', marginBottom: 8 }]}>
+            Recuperar Contraseña
+          </Text>
+          <Text style={[globalStyles.textCaption, { textAlign: 'center', marginBottom: 32, lineHeight: 20 }]}>
+            Ingresa tu email y te enviaremos un enlace para recuperar tu contraseña
+          </Text>
         </View>
 
-        <TouchableOpacity
-          style={[styles.button, isLoading && styles.buttonDisabled]}
-          onPress={handleSubmit}
-          disabled={isLoading}
-        >
-          <Text style={styles.buttonText}>
-            {isLoading ? 'Enviando...' : 'Enviar Enlace'}
-          </Text>
-        </TouchableOpacity>
+        {/* Formulario */}
+        <View style={localStyles.formContainer}>
+          <View style={globalStyles.marginBottomLg}>
+            <Text style={[globalStyles.textCaption, { fontWeight: '600', marginBottom: 8 }]}>
+              Email
+            </Text>
+            <TextInput
+              style={[
+                globalStyles.input,
+                error && globalStyles.inputError
+              ]}
+              value={email}
+              onChangeText={(value) => {
+                setEmail(value);
+                if (error) setError('');
+              }}
+              placeholder="ejemplo@correo.com"
+              placeholderTextColor={theme.colors.placeholder}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+            />
+            {error && <Text style={globalStyles.textError}>{error}</Text>}
+          </View>
 
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Login')}
-          style={styles.backButton}
-        >
-          <Text style={styles.backText}>Volver al Login</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              globalStyles.buttonPrimary,
+              isLoading && { opacity: 0.7 }
+            ]}
+            onPress={handleSubmit}
+            disabled={isLoading}
+          >
+            <Text style={globalStyles.buttonText}>
+              {isLoading ? 'Enviando...' : 'Enviar Enlace de Recuperación'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Login')}
+            style={localStyles.linkButton}
+          >
+            <Text style={[globalStyles.textBody, { color: theme.colors.primary, textAlign: 'center' }]}>
+              Volver al inicio de sesión
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Información adicional */}
+        <View style={localStyles.infoSection}>
+          <View style={localStyles.infoCard}>
+            <Icon name="information-circle" size={24} color={theme.colors.primary} />
+            <View style={localStyles.infoContent}>
+              <Text style={[globalStyles.textCaption, { fontWeight: '500', marginBottom: 4 }]}>
+                ¿No recibes el email?
+              </Text>
+              <Text style={[globalStyles.textSmall, { lineHeight: 16 }]}>
+                Revisa tu carpeta de spam o correo no deseado. El enlace expira en 24 horas.
+              </Text>
+            </View>
+          </View>
+
+          <View style={localStyles.infoCard}>
+            <Icon name="shield-checkmark" size={24} color={theme.colors.success} />
+            <View style={localStyles.infoContent}>
+              <Text style={[globalStyles.textCaption, { fontWeight: '500', marginBottom: 4 }]}>
+                Proceso seguro
+              </Text>
+              <Text style={[globalStyles.textSmall, { lineHeight: 16 }]}>
+                Tu información está protegida y el enlace es de un solo uso.
+              </Text>
+            </View>
+          </View>
+        </View>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 8,
-    color: '#000',
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    color: '#666',
+// Estilos locales específicos
+const localStyles = {
+  headerSection: {
     marginBottom: 32,
-    lineHeight: 22,
   },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#000',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: '#f9f9f9',
-  },
-  inputError: {
-    borderColor: '#e74c3c',
-  },
-  errorText: {
-    color: '#e74c3c',
-    fontSize: 14,
-    marginTop: 4,
-  },
-  button: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 16,
-    borderRadius: 8,
+  iconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 24,
   },
-  buttonDisabled: {
-    opacity: 0.7,
+  formContainer: {
+    width: '100%',
+    marginBottom: 32,
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  backButton: {
+  linkButton: {
+    marginTop: 20,
     alignItems: 'center',
   },
-  backText: {
-    color: '#2563eb',
-    fontSize: 16,
+  infoSection: {
+    width: '100%',
+    marginBottom: 32,
   },
-});
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#f8fafc',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2563eb',
+  },
+  infoContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  contactSection: {
+    width: '100%',
+  },
+};

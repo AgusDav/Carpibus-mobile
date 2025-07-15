@@ -8,7 +8,6 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../context/AuthContext';
-import NotificationStatus from '../components/NotificationStatus';
 import { globalStyles } from '../styles/globalStyles';
 import { useTheme } from '../hooks/useTheme';
 
@@ -55,9 +54,6 @@ export default function ProfileScreen({ navigation }) {
         <Text style={globalStyles.textCaption}>{user?.email}</Text>
       </View>
 
-      {/* Componente de estado de notificaciones */}
-      <NotificationStatus />
-
       {/* Información del usuario */}
       <View style={globalStyles.card}>
         <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
@@ -79,7 +75,7 @@ export default function ProfileScreen({ navigation }) {
         <View style={localStyles.infoRow}>
           <Text style={globalStyles.textCaption}>Cédula</Text>
           <Text style={globalStyles.textBody}>
-            {user?.cedula || 'No especificada'}
+            {user?.ci || 'No especificada'}
           </Text>
         </View>
 

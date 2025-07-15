@@ -4,37 +4,34 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  Alert,
   ScrollView,
   SafeAreaView,
-  Platform,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../../context/AuthContext';
+import { globalStyles } from '../../styles/globalStyles';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function RegisterScreen({ navigation }) {
   const { register, isLoading } = useAuth();
+  const theme = useTheme();
+
   const [formData, setFormData] = useState({
     nombre: '',
     apellido: '',
     ci: '',
-    email: '',
     telefono: '',
+    email: '',
     fechaNac: '',
     contrasenia: '',
     confirmarContrasenia: '',
   });
-  const [errors, setErrors] = useState({});
 
-  // Estados para mostrar/ocultar contraseñas
+  const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  // Estado para el selector de fecha
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -43,54 +40,16 @@ export default function RegisterScreen({ navigation }) {
     }
   };
 
-  // Función para manejar el cambio de fecha
-  const handleDateChange = (event, date) => {
-    setShowDatePicker(Platform.OS === 'ios');
+  const formatDate = (date) => {
+    const d = new Date(date);
+    let month = '' + (d.getMonth() + 1);
+    let day = '' + d.getDate();
+    const year = d.getFullYear();
 
-    if (date) {
-      setSelectedDate(date);
-      // Convertir a formato YYYY-MM-DD para el backend
-      const formattedDate = formatDateForBackend(date);
-      handleInputChange('fechaNac', formattedDate);
-    }
-  };
+    if (month.length < 2) month = '0' + month;
+    if (day.length < 2) day = '0' + day;
 
-  // Formatear fecha para mostrar al usuario
-  const formatDateForDisplay = (dateString) => {
-    if (!dateString) return 'Seleccionar fecha de nacimiento';
-
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('es-ES', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    } catch {
-      return 'Fecha inválida';
-    }
-  };
-
-  // Formatear fecha para el backend (YYYY-MM-DD)
-  const formatDateForBackend = (date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  // Abrir selector de fecha
-  const openDatePicker = () => {
-    // Si ya hay una fecha seleccionada, usarla como inicial
-    if (formData.fechaNac) {
-      try {
-        setSelectedDate(new Date(formData.fechaNac));
-      } catch {
-        setSelectedDate(new Date());
-      }
-    }
-    setShowDatePicker(true);
+    return [year, month, day].join('-');
   };
 
   const validateForm = () => {
@@ -149,180 +108,211 @@ export default function RegisterScreen({ navigation }) {
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Crear Cuenta</Text>
-        <Text style={styles.subtitle}>
-          Completa todos los campos para registrarte
-        </Text>
+  const handleDatePress = () => {
+    setShowDatePicker(true);
+  };
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Nombre *</Text>
+  return (
+    <SafeAreaView style={globalStyles.safeArea}>
+      <ScrollView
+        style={globalStyles.container}
+        contentContainerStyle={globalStyles.screenPadding}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={[globalStyles.centerContent, localStyles.headerSection]}>
+          <Icon name="person-add" size={48} color={theme.colors.primary} />
+          <Text style={[globalStyles.textHeading1, { textAlign: 'center', marginBottom: 8 }]}>
+            Crear Cuenta
+          </Text>
+          <Text style={[globalStyles.textCaption, { textAlign: 'center', marginBottom: 32 }]}>
+            Completa todos los campos para registrarte
+          </Text>
+        </View>
+
+        {/* Nombre */}
+        <View style={globalStyles.marginBottomMd}>
+          <Text style={[globalStyles.textCaption, { fontWeight: '600', marginBottom: 8 }]}>
+            Nombre *
+          </Text>
           <TextInput
-            style={[styles.input, errors.nombre && styles.inputError]}
+            style={[globalStyles.input, errors.nombre && globalStyles.inputError]}
             value={formData.nombre}
             onChangeText={(value) => handleInputChange('nombre', value)}
             placeholder="Tu nombre"
+            placeholderTextColor={theme.colors.placeholder}
           />
-          {errors.nombre && <Text style={styles.errorText}>{errors.nombre}</Text>}
+          {errors.nombre && <Text style={globalStyles.textError}>{errors.nombre}</Text>}
         </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Apellido *</Text>
+        {/* Apellido */}
+        <View style={globalStyles.marginBottomMd}>
+          <Text style={[globalStyles.textCaption, { fontWeight: '600', marginBottom: 8 }]}>
+            Apellido *
+          </Text>
           <TextInput
-            style={[styles.input, errors.apellido && styles.inputError]}
+            style={[globalStyles.input, errors.apellido && globalStyles.inputError]}
             value={formData.apellido}
             onChangeText={(value) => handleInputChange('apellido', value)}
             placeholder="Tu apellido"
+            placeholderTextColor={theme.colors.placeholder}
           />
-          {errors.apellido && <Text style={styles.errorText}>{errors.apellido}</Text>}
+          {errors.apellido && <Text style={globalStyles.textError}>{errors.apellido}</Text>}
         </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Cédula *</Text>
+        {/* Cédula */}
+        <View style={globalStyles.marginBottomMd}>
+          <Text style={[globalStyles.textCaption, { fontWeight: '600', marginBottom: 8 }]}>
+            Cédula *
+          </Text>
           <TextInput
-            style={[styles.input, errors.ci && styles.inputError]}
+            style={[globalStyles.input, errors.ci && globalStyles.inputError]}
             value={formData.ci}
             onChangeText={(value) => handleInputChange('ci', value)}
-            placeholder="12345678 (sin puntos ni guiones)"
+            placeholder="12345678"
+            placeholderTextColor={theme.colors.placeholder}
             keyboardType="numeric"
           />
-          {errors.ci && <Text style={styles.errorText}>{errors.ci}</Text>}
+          {errors.ci && <Text style={globalStyles.textError}>{errors.ci}</Text>}
         </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Email *</Text>
+        {/* Teléfono */}
+        <View style={globalStyles.marginBottomMd}>
+          <Text style={[globalStyles.textCaption, { fontWeight: '600', marginBottom: 8 }]}>
+            Teléfono
+          </Text>
           <TextInput
-            style={[styles.input, errors.email && styles.inputError]}
-            value={formData.email}
-            onChangeText={(value) => handleInputChange('email', value)}
-            placeholder="tu@email.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Teléfono</Text>
-          <TextInput
-            style={[styles.input, errors.telefono && styles.inputError]}
+            style={globalStyles.input}
             value={formData.telefono}
             onChangeText={(value) => handleInputChange('telefono', value)}
             placeholder="099123456"
+            placeholderTextColor={theme.colors.placeholder}
             keyboardType="phone-pad"
           />
-          {errors.telefono && <Text style={styles.errorText}>{errors.telefono}</Text>}
         </View>
 
-        {/* Selector de fecha con calendario */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Fecha de Nacimiento *</Text>
+        {/* Email */}
+        <View style={globalStyles.marginBottomMd}>
+          <Text style={[globalStyles.textCaption, { fontWeight: '600', marginBottom: 8 }]}>
+            Email *
+          </Text>
+          <TextInput
+            style={[globalStyles.input, errors.email && globalStyles.inputError]}
+            value={formData.email}
+            onChangeText={(value) => handleInputChange('email', value)}
+            placeholder="ejemplo@correo.com"
+            placeholderTextColor={theme.colors.placeholder}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          {errors.email && <Text style={globalStyles.textError}>{errors.email}</Text>}
+        </View>
+
+        {/* Fecha de Nacimiento */}
+        <View style={globalStyles.marginBottomMd}>
+          <Text style={[globalStyles.textCaption, { fontWeight: '600', marginBottom: 8 }]}>
+            Fecha de Nacimiento *
+          </Text>
           <TouchableOpacity
-            style={[styles.dateButton, errors.fechaNac && styles.inputError]}
-            onPress={openDatePicker}
+            style={[
+              localStyles.dateButton,
+              errors.fechaNac && { borderColor: theme.colors.error }
+            ]}
+            onPress={handleDatePress}
           >
-            <View style={styles.dateButtonContent}>
+            <View style={localStyles.dateButtonContent}>
               <Text style={[
-                styles.dateButtonText,
-                !formData.fechaNac && styles.placeholderText
+                globalStyles.textBody,
+                !formData.fechaNac && { color: theme.colors.placeholder }
               ]}>
-                {formatDateForDisplay(formData.fechaNac)}
+                {formData.fechaNac || 'Selecciona tu fecha de nacimiento'}
               </Text>
-              <Icon
-                name="calendar-outline"
-                size={24}
-                color={formData.fechaNac ? "#007bff" : "#666"}
-              />
+              <Icon name="calendar" size={24} color={theme.colors.textSecondary} />
             </View>
           </TouchableOpacity>
-          {errors.fechaNac && <Text style={styles.errorText}>{errors.fechaNac}</Text>}
+          {errors.fechaNac && <Text style={globalStyles.textError}>{errors.fechaNac}</Text>}
         </View>
 
-        {/* DateTimePicker - se muestra cuando showDatePicker es true */}
-        {showDatePicker && (
-          <DateTimePicker
-            value={selectedDate}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={handleDateChange}
-            maximumDate={new Date()} // No permitir fechas futuras
-            minimumDate={new Date(1900, 0, 1)} // Desde el año 1900
-          />
-        )}
-
-        {/* Contraseña con toggle */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Contraseña *</Text>
-          <View style={styles.passwordContainer}>
+        {/* Contraseña */}
+        <View style={globalStyles.marginBottomMd}>
+          <Text style={[globalStyles.textCaption, { fontWeight: '600', marginBottom: 8 }]}>
+            Contraseña *
+          </Text>
+          <View style={[
+            localStyles.passwordContainer,
+            errors.contrasenia && { borderColor: theme.colors.error }
+          ]}>
             <TextInput
-              style={[
-                styles.passwordInput,
-                errors.contrasenia && styles.inputError
-              ]}
+              style={localStyles.passwordInput}
               value={formData.contrasenia}
               onChangeText={(value) => handleInputChange('contrasenia', value)}
               placeholder="Mínimo 6 caracteres"
+              placeholderTextColor={theme.colors.placeholder}
               secureTextEntry={!showPassword}
             />
             <TouchableOpacity
-              style={styles.eyeButton}
+              style={localStyles.eyeButton}
               onPress={() => setShowPassword(!showPassword)}
             >
               <Icon
                 name={showPassword ? 'eye-off' : 'eye'}
                 size={24}
-                color="#666"
+                color={theme.colors.textSecondary}
               />
             </TouchableOpacity>
           </View>
-          {errors.contrasenia && <Text style={styles.errorText}>{errors.contrasenia}</Text>}
+          {errors.contrasenia && <Text style={globalStyles.textError}>{errors.contrasenia}</Text>}
         </View>
 
-        {/* Confirmar contraseña con toggle */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Confirmar Contraseña *</Text>
-          <View style={styles.passwordContainer}>
+        {/* Confirmar Contraseña */}
+        <View style={globalStyles.marginBottomLg}>
+          <Text style={[globalStyles.textCaption, { fontWeight: '600', marginBottom: 8 }]}>
+            Confirmar Contraseña *
+          </Text>
+          <View style={[
+            localStyles.passwordContainer,
+            errors.confirmarContrasenia && { borderColor: theme.colors.error }
+          ]}>
             <TextInput
-              style={[
-                styles.passwordInput,
-                errors.confirmarContrasenia && styles.inputError
-              ]}
+              style={localStyles.passwordInput}
               value={formData.confirmarContrasenia}
               onChangeText={(value) => handleInputChange('confirmarContrasenia', value)}
-              placeholder="Vuelve a escribir la contraseña"
+              placeholder="Confirma tu contraseña"
+              placeholderTextColor={theme.colors.placeholder}
               secureTextEntry={!showConfirmPassword}
             />
             <TouchableOpacity
-              style={styles.eyeButton}
+              style={localStyles.eyeButton}
               onPress={() => setShowConfirmPassword(!showConfirmPassword)}
             >
               <Icon
                 name={showConfirmPassword ? 'eye-off' : 'eye'}
                 size={24}
-                color="#666"
+                color={theme.colors.textSecondary}
               />
             </TouchableOpacity>
           </View>
-          {errors.confirmarContrasenia && <Text style={styles.errorText}>{errors.confirmarContrasenia}</Text>}
+          {errors.confirmarContrasenia && <Text style={globalStyles.textError}>{errors.confirmarContrasenia}</Text>}
         </View>
 
         <TouchableOpacity
-          style={[styles.button, isLoading && styles.buttonDisabled]}
+          style={[
+            globalStyles.buttonPrimary,
+            isLoading && { opacity: 0.7 }
+          ]}
           onPress={handleSubmit}
           disabled={isLoading}
         >
-          <Text style={styles.buttonText}>
+          <Text style={globalStyles.buttonText}>
             {isLoading ? 'Registrando...' : 'Crear Mi Cuenta'}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={() => navigation.navigate('Login')}
-          style={styles.linkButton}
+          style={localStyles.linkButton}
         >
-          <Text style={styles.linkText}>
+          <Text style={[globalStyles.textBody, { color: theme.colors.primary, textAlign: 'center' }]}>
             ¿Ya tienes una cuenta? Inicia sesión aquí
           </Text>
         </TouchableOpacity>
@@ -331,54 +321,11 @@ export default function RegisterScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
+// Estilos locales específicos
+const localStyles = {
+  headerSection: {
+    marginBottom: 32,
   },
-  scrollContent: {
-    padding: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 10,
-    color: '#333',
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 30,
-    color: '#666',
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#333',
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 15,
-    fontSize: 16,
-  },
-  inputError: {
-    borderColor: '#ff6b6b',
-  },
-  errorText: {
-    color: '#ff6b6b',
-    fontSize: 14,
-    marginTop: 5,
-  },
-
-  // Estilos para el selector de fecha
   dateButton: {
     backgroundColor: '#fff',
     borderWidth: 1,
@@ -391,16 +338,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  dateButtonText: {
-    fontSize: 16,
-    color: '#333',
-    flex: 1,
-  },
-  placeholderText: {
-    color: '#999',
-  },
-
-  // Estilos para contraseñas
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -417,29 +354,8 @@ const styles = StyleSheet.create({
   eyeButton: {
     padding: 15,
   },
-
-  // Estilos para botones
-  button: {
-    backgroundColor: '#007bff',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  buttonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
   linkButton: {
     marginTop: 20,
     alignItems: 'center',
   },
-  linkText: {
-    color: '#007bff',
-    fontSize: 16,
-  },
-});
+};

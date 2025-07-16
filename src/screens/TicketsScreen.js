@@ -5,12 +5,8 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  Modal,
-  TextInput,
-  ScrollView,
   Alert,
   StatusBar,
-  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -18,7 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { ticketsService } from '../api/tickets';
 import Loading from '../components/Loading';
 import EmptyState from '../components/EmptyState';
-import DatePicker from '../components/DatePicker';
+import FilterModal from '../components/FilterModal'; // Nuevo componente separado
 import { useTicketsFilters } from '../hooks/useTicketsFilters';
 import { globalStyles } from '../styles/globalStyles';
 import { useTheme } from '../hooks/useTheme';
@@ -31,10 +27,6 @@ export default function TicketsScreen({ navigation }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-
-  // Estados para manejo de dropdowns - OPTIMIZACIÓN: Separados del hook
-  const [showOrigenDropdown, setShowOrigenDropdown] = useState(false);
-  const [showDestinoDropdown, setShowDestinoDropdown] = useState(false);
 
   // Usar el hook de filtros optimizado
   const {
@@ -169,306 +161,14 @@ export default function TicketsScreen({ navigation }) {
     </TouchableOpacity>
   ), [navigation, theme.colors, formatDate, formatTime]);
 
-  // SOLUCIÓN: useCallback para handlers de selección
-  const handleOrigenSelect = useCallback((origen) => {
-    updateFilter('origenNombre', origen);
-    setShowOrigenDropdown(false);
-  }, [updateFilter]);
-
-  const handleDestinoSelect = useCallback((destino) => {
-    updateFilter('destinoNombre', destino);
-    setShowDestinoDropdown(false);
-  }, [updateFilter]);
-
-  // SOLUCIÓN: useCallback para cerrar modal
-  const closeFiltersModal = useCallback(() => {
+  // Callbacks para el FilterModal
+  const handleFiltersClose = useCallback(() => {
     setShowFilters(false);
-    setShowOrigenDropdown(false);
-    setShowDestinoDropdown(false);
   }, []);
 
-  // SOLUCIÓN: useCallback para limpiar filtros
-  const handleClearFilters = useCallback(() => {
-    clearFilters();
-    setShowOrigenDropdown(false);
-    setShowDestinoDropdown(false);
-  }, [clearFilters]);
-
-  // Componente para input con dropdown optimizado
-  const InputWithDropdown = useCallback(({
-    label,
-    value,
-    placeholder,
-    options,
-    onSelect,
-    showDropdown,
-    setShowDropdown
-  }) => (
-    <View style={globalStyles.marginBottomMd}>
-      <Text style={[globalStyles.textCaption, { fontWeight: '500', marginBottom: 6 }]}>
-        {label}
-      </Text>
-      <TouchableOpacity
-        style={[
-          globalStyles.input,
-          {
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }
-        ]}
-        onPress={() => setShowDropdown(!showDropdown)}
-      >
-        <Text style={[
-          globalStyles.textBody,
-          { color: value ? theme.colors.text : theme.colors.placeholder }
-        ]}>
-          {value || placeholder}
-        </Text>
-        <Icon
-          name={showDropdown ? "chevron-up" : "chevron-down"}
-          size={20}
-          color={theme.colors.textSecondary}
-        />
-      </TouchableOpacity>
-
-      {showDropdown && options.length > 0 && (
-        <View style={{
-          backgroundColor: '#fff',
-          borderWidth: 1,
-          borderColor: '#e5e7eb',
-          borderRadius: 8,
-          marginTop: 4,
-          maxHeight: 200,
-          elevation: 3,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          zIndex: 1000,
-        }}>
-          <ScrollView
-            style={{ maxHeight: 200 }}
-            nestedScrollEnabled={true}
-          >
-            {value && (
-              <TouchableOpacity
-                style={{
-                  padding: 12,
-                  borderBottomWidth: 1,
-                  borderBottomColor: '#f3f4f6',
-                }}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  onSelect('');
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[globalStyles.textBody, { color: theme.colors.textSecondary, fontStyle: 'italic' }]}>
-                  Limpiar selección
-                </Text>
-              </TouchableOpacity>
-            )}
-            {options.map((option, index) => (
-              <TouchableOpacity
-                key={index}
-                style={{
-                  padding: 12,
-                  borderBottomWidth: index < options.length - 1 ? 1 : 0,
-                  borderBottomColor: '#f3f4f6',
-                  backgroundColor: value === option ? '#f0f9ff' : 'transparent',
-                }}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  onSelect(option);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[
-                  globalStyles.textBody,
-                  { color: value === option ? theme.colors.primary : theme.colors.text }
-                ]}>
-                  {option}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-    </View>
-  ), [theme.colors]);
-
-  // Modal de filtros optimizado
-  const FilterModal = useCallback(() => (
-    <Modal
-      visible={showFilters}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={closeFiltersModal}
-    >
-      <View style={[globalStyles.container, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-
-        {/* Header del modal */}
-        <View style={[globalStyles.header, globalStyles.row, globalStyles.spaceBetween]}>
-          <TouchableOpacity
-            onPress={closeFiltersModal}
-            style={{ minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'center' }}
-          >
-            <Text style={[globalStyles.textBody, { color: theme.colors.textSecondary }]}>
-              Cancelar
-            </Text>
-          </TouchableOpacity>
-          <Text style={globalStyles.headerTitle}>Filtrar Pasajes</Text>
-          <TouchableOpacity
-            onPress={handleClearFilters}
-            style={{ minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'center' }}
-          >
-            <Text style={[globalStyles.textBody, { color: theme.colors.error, fontWeight: '600' }]}>
-              Limpiar
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          style={globalStyles.screenPadding}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          onTouchStart={() => {
-            setShowOrigenDropdown(false);
-            setShowDestinoDropdown(false);
-          }}
-        >
-          {/* Filtros */}
-          <View style={{ marginBottom: 32 }}>
-            <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
-              Filtros
-            </Text>
-
-            {/* Origen con dropdown */}
-            <InputWithDropdown
-              label="Origen:"
-              value={filters.origenNombre}
-              placeholder="Seleccionar origen"
-              options={uniqueOptions.origenes}
-              onSelect={handleOrigenSelect}
-              showDropdown={showOrigenDropdown}
-              setShowDropdown={setShowOrigenDropdown}
-            />
-
-            {/* Destino con dropdown */}
-            <InputWithDropdown
-              label="Destino:"
-              value={filters.destinoNombre}
-              placeholder="Seleccionar destino"
-              options={uniqueOptions.destinos}
-              onSelect={handleDestinoSelect}
-              showDropdown={showDestinoDropdown}
-              setShowDropdown={setShowDestinoDropdown}
-            />
-
-            {/* Fecha Desde */}
-            <DatePicker
-              label="Fecha Desde:"
-              value={filters.fechaDesde}
-              onDateChange={(date) => updateFilter('fechaDesde', date)}
-              placeholder="Seleccionar fecha desde"
-              maximumDate={filters.fechaHasta ? new Date(filters.fechaHasta) : null}
-            />
-
-            {/* Fecha Hasta */}
-            <DatePicker
-              label="Fecha Hasta:"
-              value={filters.fechaHasta}
-              onDateChange={(date) => updateFilter('fechaHasta', date)}
-              placeholder="Seleccionar fecha hasta"
-              minimumDate={filters.fechaDesde ? new Date(filters.fechaDesde) : null}
-            />
-          </View>
-
-          {/* Ordenamiento */}
-          <View style={{ marginBottom: 32 }}>
-            <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
-              Ordenar por
-            </Text>
-
-            {[
-              { key: 'fechaViaje', label: 'Fecha del Viaje', icon: 'calendar-outline' },
-              { key: 'origenViaje', label: 'Origen', icon: 'location-outline' },
-              { key: 'destinoViaje', label: 'Destino', icon: 'location-outline' },
-              { key: 'precio', label: 'Precio', icon: 'cash-outline' },
-            ].map((option, index) => (
-              <TouchableOpacity
-                key={option.key}
-                style={[
-                  globalStyles.listItem,
-                  index === 0 && globalStyles.listItemFirst,
-                  index === 3 && globalStyles.listItemLast,
-                  filters.sortBy === option.key && { backgroundColor: theme.colors.primary + '10' }
-                ]}
-                onPress={() => toggleSort(option.key)}
-              >
-                <View style={[globalStyles.row, { gap: 12 }]}>
-                  <Icon
-                    name={option.icon}
-                    size={20}
-                    color={filters.sortBy === option.key ? theme.colors.primary : theme.colors.textSecondary}
-                  />
-                  <Text style={[
-                    globalStyles.textBody,
-                    { flex: 1 },
-                    filters.sortBy === option.key && { color: theme.colors.primary, fontWeight: '600' }
-                  ]}>
-                    {option.label}{getSortIndicator(option.key)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Resumen de resultados */}
-          <View style={{ marginBottom: 32 }}>
-            <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
-              Resultados
-            </Text>
-            <View style={{
-              backgroundColor: '#f8fafc',
-              padding: 16,
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: '#e5e7eb',
-            }}>
-              <Text style={[globalStyles.textBody, { fontWeight: '500', marginBottom: 4 }]}>
-                Se mostrarán {filterStats.filtered} de {filterStats.total} pasajes
-              </Text>
-              {hasActiveFilters && filterStats.hidden > 0 && (
-                <Text style={[globalStyles.textSmall, { color: theme.colors.textSecondary }]}>
-                  ({filterStats.hidden} pasajes ocultos por los filtros)
-                </Text>
-              )}
-            </View>
-          </View>
-        </ScrollView>
-
-        {/* Footer del modal */}
-        <View style={{
-          padding: 20,
-          borderTopWidth: 1,
-          borderTopColor: '#e5e7eb',
-          backgroundColor: '#fff',
-        }}>
-          <TouchableOpacity
-            style={globalStyles.buttonPrimary}
-            onPress={closeFiltersModal}
-          >
-            <Text style={globalStyles.buttonText}>
-              Mostrar {filterStats.filtered} pasajes
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  ), [showFilters, filters, filterStats, hasActiveFilters, uniqueOptions, theme.colors, insets.top, closeFiltersModal, handleClearFilters, handleOrigenSelect, handleDestinoSelect, showOrigenDropdown, showDestinoDropdown, updateFilter, toggleSort, getSortIndicator, InputWithDropdown]);
+  const handleFiltersOpen = useCallback(() => {
+    setShowFilters(true);
+  }, []);
 
   // Mostrar loading inicial
   if (isLoading && tickets.length === 0) {
@@ -496,7 +196,7 @@ export default function TicketsScreen({ navigation }) {
                 minWidth: 44,
               }
             ]}
-            onPress={() => setShowFilters(true)}
+            onPress={handleFiltersOpen}
           >
             <Icon
               name="filter-outline"
@@ -594,7 +294,7 @@ export default function TicketsScreen({ navigation }) {
               onActionPress={
                 tickets.length === 0
                   ? () => navigation.navigate('Search')
-                  : () => setShowFilters(true)
+                  : handleFiltersOpen
               }
             />
           ) : null
@@ -603,7 +303,21 @@ export default function TicketsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       />
 
-      <FilterModal />
+      {/* Modal de filtros como componente separado */}
+      <FilterModal
+        visible={showFilters}
+        onClose={handleFiltersClose}
+        filters={filters}
+        filterStats={filterStats}
+        hasActiveFilters={hasActiveFilters}
+        uniqueOptions={uniqueOptions}
+        updateFilter={updateFilter}
+        toggleSort={toggleSort}
+        clearFilters={clearFilters}
+        getSortIndicator={getSortIndicator}
+        theme={theme}
+        insets={insets}
+      />
     </View>
   );
 }

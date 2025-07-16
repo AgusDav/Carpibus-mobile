@@ -32,35 +32,44 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (credentials) => {
-    try {
-      setIsLoading(true);
-      const response = await authService.login(credentials);
+      try {
+        setIsLoading(true);
+        const response = await authService.login(credentials);
 
-      // Guardar token
-      await AsyncStorage.setItem('auth_token', response.token);
+        const rolLowerCase = response.rol?.toLowerCase() || '';
 
-      // Crear objeto User desde la respuesta del backend
-      const userData = {
-        id: response.id,
-        email: response.email,
-        nombre: response.nombre,
-        apellido: response.apellido,
-        ci: response.ci,
-        telefono: response.telefono,
-        fechaNac: response.fechaNac,
-        rol: response.rol,
-        tipoCliente: response.tipoCliente
-      };
+        // VALIDACIÓN PARA APP MÓVIL - Solo permitir clientes
+        if (rolLowerCase !== 'cliente') {
+          throw new Error('Esta aplicación es solo para clientes.');
+        }
 
-      // Guardar datos del usuario
-      await AsyncStorage.setItem('user_data', JSON.stringify(userData));
-      setUser(userData);
-    } catch (error) {
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        // Guardar token
+        await AsyncStorage.setItem('auth_token', response.token);
+
+        // Crear objeto User desde la respuesta del backend
+        const userData = {
+          id: response.id,
+          email: response.email,
+          nombre: response.nombre,
+          apellido: response.apellido,
+          ci: response.ci,
+          telefono: response.telefono,
+          fechaNac: response.fechaNac,
+          rol: response.rol,
+          tipoCliente: response.tipoCliente
+        };
+
+        // Guardar datos del usuario
+        await AsyncStorage.setItem('user_data', JSON.stringify(userData));
+        setUser(userData);
+      } catch (error) {
+        // Limpiar cualquier dato que se haya guardado
+        await AsyncStorage.multiRemove(['auth_token', 'user_data']);
+        throw error;
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
   const register = async (userData) => {
     try {

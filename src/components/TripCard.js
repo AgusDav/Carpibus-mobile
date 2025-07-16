@@ -73,38 +73,102 @@ const extractTimeFromDateTime = (dateTimeString) => {
 export default function TripCard({ trip, onPress, onBookPress }) {
   // Debug: Ver la estructura real de los datos
   console.log('TripCard received trip:', JSON.stringify(trip, null, 2));
-  console.log('Matrícula específica:', trip.matriculaOmnibus);
-  console.log('Todos los campos que empiezan con "matric":', Object.keys(trip).filter(key => key.toLowerCase().includes('matric')));
-  console.log('Todos los campos que empiezan con "omnibus":', Object.keys(trip).filter(key => key.toLowerCase().includes('omnibus')));
 
   // Mapear campos del backend al frontend
   const mappedTrip = {
     id: trip.id,
 
     // Extraer fecha de fechaSalida (LocalDateTime)
-    fecha: extractDateFromDateTime(trip.fechaSalida),
+    fecha: extractDateFromDateTime(trip.fechaSalida) ||
+           extractDateFromDateTime(trip.fecha) ||
+           trip.fecha,
 
     // Extraer horas de los LocalDateTime
-    horaSalida: extractTimeFromDateTime(trip.fechaSalida),
-    horaLlegada: extractTimeFromDateTime(trip.fechaLlegada),
+    horaSalida: extractTimeFromDateTime(trip.fechaSalida) ||
+                formatTime(trip.horaSalida) ||
+                trip.horaSalida,
+    horaLlegada: extractTimeFromDateTime(trip.fechaLlegada) ||
+                 formatTime(trip.horaLlegada) ||
+                 trip.horaLlegada,
 
     // Usar los nombres directos que vienen del backend
-    origen: { nombre: trip.origenNombre || 'Origen N/A' },
-    destino: { nombre: trip.destinoNombre || 'Destino N/A' },
-
-    // Crear objeto omnibus con diferentes posibles nombres de campos
-    omnibus: {
-      matricula: trip.matriculaOmnibus || trip.omnibusMatricula || trip.matricula || 'Matrícula N/A',
-      capacidad: trip.capacidadOmnibus || trip.omnibusCapacidad || trip.capacidad || 0
+    origen: {
+      nombre: trip.origenNombre ||
+              trip.origen?.nombre ||
+              'Origen N/A'
     },
+    destino: {
+      nombre: trip.destinoNombre ||
+              trip.destino?.nombre ||
+              'Destino N/A'
+    },
+
+    // Crear objeto omnibus con mapeo correcto basado en la estructura del backend
+    omnibus: {
+      matricula: trip.matriculaOmnibus ||
+                 trip.omnibusMatricula ||
+                 trip.omnibus?.matricula ||
+                 trip.busAsignado?.matricula ||
+                 'Matrícula N/A',
+
+      // El modelo puede venir de diferentes fuentes según la respuesta del backend
+      modelo: trip.modeloOmnibus ||
+              trip.omnibusModelo ||
+              trip.omnibus?.modelo ||
+              trip.busAsignado?.modelo ||
+              'Modelo N/A',
+
+      // La marca también puede venir de diferentes fuentes
+      marca: trip.marcaOmnibus ||
+             trip.omnibusMarca ||
+             trip.omnibus?.marca ||
+             trip.busAsignado?.marca ||
+             'Marca N/A',
+
+      // Capacidad del ómnibus
+      capacidad: trip.capacidadOmnibus ||
+                 trip.omnibusCapacidad ||
+                 trip.omnibus?.capacidadAsientos ||
+                 trip.busAsignado?.capacidadAsientos ||
+                 trip.capacidad ||
+                 0
+    },
+
     precio: trip.precio || 0,
 
     // Calcular asientos disponibles correctamente
-    asientosDisponibles: (trip.capacidadOmnibus || 0) - (trip.asientosVendidos || 0),
-    estado: trip.estado,
+    asientosDisponibles: trip.asientosDisponibles ||
+                         ((trip.capacidadOmnibus || trip.omnibus?.capacidadAsientos || 0) - (trip.asientosVendidos || 0)),
+
+    estado: trip.estado || 'PROGRAMADO',
 
     // Para compatibilidad con funciones existentes
-    ventasCerradas: trip.estado === 'CANCELADO' || trip.estado === 'COMPLETADO'
+    ventasCerradas: trip.estado === 'CANCELADO' ||
+                    trip.estado === 'COMPLETADO' ||
+                    trip.estado === 'FINALIZADO'
+  };
+
+  // Función para crear el texto del ómnibus de manera inteligente
+  const getOmnibusText = () => {
+    const { marca, modelo, matricula } = mappedTrip.omnibus;
+
+    // Si tenemos marca y modelo, los mostramos
+    if (marca && marca !== 'Marca N/A' && modelo && modelo !== 'Modelo N/A') {
+      return `${marca} ${modelo} - ${matricula}`;
+    }
+
+    // Si solo tenemos modelo
+    if (modelo && modelo !== 'Modelo N/A') {
+      return `${modelo} - ${matricula}`;
+    }
+
+    // Si solo tenemos marca
+    if (marca && marca !== 'Marca N/A') {
+      return `${marca} - ${matricula}`;
+    }
+
+    // Si solo tenemos matrícula
+    return matricula;
   };
 
   const isAvailable = mappedTrip.asientosDisponibles > 0 && !mappedTrip.ventasCerradas;
@@ -143,17 +207,39 @@ export default function TripCard({ trip, onPress, onBookPress }) {
 
         <View style={styles.detailRow}>
           <Icon name="bus-outline" size={16} color="#666" />
-          <Text style={styles.detailText}>
-            {mappedTrip.omnibus.modelo} - {mappedTrip.omnibus.matricula}
+          <Text style={styles.detailText} numberOfLines={1}>
+            {getOmnibusText()}
           </Text>
         </View>
 
         <View style={styles.detailRow}>
           <Icon name="people-outline" size={16} color="#666" />
-          <Text style={styles.detailText}>
+          <Text style={[
+            styles.detailText,
+            {
+              color: isAvailable ? '#28a745' : '#dc3545',
+              fontWeight: '600'
+            }
+          ]}>
             {mappedTrip.asientosDisponibles} asientos disponibles
           </Text>
         </View>
+
+        {/* Mostrar estado del viaje si no está programado */}
+        {mappedTrip.estado !== 'PROGRAMADO' && (
+          <View style={styles.detailRow}>
+            <Icon name="information-circle-outline" size={16} color="#666" />
+            <Text style={[
+              styles.detailText,
+              {
+                color: mappedTrip.estado === 'CANCELADO' ? '#dc3545' : '#ffc107',
+                fontWeight: '600'
+              }
+            ]}>
+              {mappedTrip.estado.replace('_', ' ')}
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.footer}>
@@ -173,7 +259,7 @@ export default function TripCard({ trip, onPress, onBookPress }) {
             styles.bookButtonText,
             !isAvailable && styles.bookButtonTextDisabled
           ]}>
-            {isAvailable ? 'Reservar' : 'No disponible'}
+            {isAvailable ? 'Comprar' : 'No Disponible'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -219,8 +305,8 @@ const styles = StyleSheet.create({
   },
   priceText: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#2563eb',
+    fontWeight: 'bold',
+    color: '#2E7D32',
   },
   details: {
     marginBottom: 16,
@@ -234,6 +320,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginLeft: 8,
+    flex: 1,
   },
   footer: {
     flexDirection: 'row',
@@ -241,37 +328,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   detailButton: {
-    backgroundColor: '#f3f4f6',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#007AFF',
     borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     flex: 1,
     marginRight: 8,
   },
   detailButtonText: {
+    color: '#007AFF',
     fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+    fontWeight: '600',
     textAlign: 'center',
   },
   bookButton: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    backgroundColor: '#007AFF',
     borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     flex: 1,
     marginLeft: 8,
   },
   bookButtonDisabled: {
-    backgroundColor: '#d1d5db',
+    backgroundColor: '#ccc',
   },
   bookButtonText: {
+    color: '#fff',
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
     textAlign: 'center',
   },
   bookButtonTextDisabled: {
-    color: '#9ca3af',
+    color: '#999',
   },
 });

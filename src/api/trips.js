@@ -1,3 +1,4 @@
+// src/api/trips.js
 import { apiClient } from './client';
 
 export const tripsService = {
@@ -29,6 +30,45 @@ export const tripsService = {
   async getAvailableLocations() {
     const response = await apiClient.get(
       '/api/vendedor/localidades-disponibles',
+      true
+    );
+    return response;
+  },
+
+  // Nuevo método para reservar asientos temporalmente
+  async reserveSeatsTemporarily(reservationData) {
+    const response = await apiClient.post(
+      '/api/vendedor/pasajes/reservar-temporalmente',
+      reservationData,
+      true
+    );
+    return response;
+  },
+
+  // Nuevo método para confirmar compra múltiple
+  async confirmMultiplePurchase(purchaseData) {
+    const response = await apiClient.post(
+      '/api/vendedor/pasajes/confirmar-compra-multiple',
+      purchaseData,
+      true
+    );
+    return response;
+  },
+
+  // Obtener pasajes del usuario
+  async getUserTickets() {
+    const response = await apiClient.get(
+      '/api/cliente/pasajes',
+      true
+    );
+    return response;
+  },
+
+  // Cancelar/devolver un pasaje
+  async cancelTicket(ticketId) {
+    const response = await apiClient.post(
+      `/api/vendedor/pasajes/${ticketId}/devolucion`,
+      {},
       true
     );
     return response;

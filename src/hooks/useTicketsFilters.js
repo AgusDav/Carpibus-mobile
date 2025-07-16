@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 
 export const useTicketsFilters = (tickets = []) => {
   const [filters, setFilters] = useState({
@@ -10,12 +10,36 @@ export const useTicketsFilters = (tickets = []) => {
     sortDir: 'desc',
   });
 
-  // Aplicar filtros y ordenamiento - IGUAL AL WEB
-  const filteredAndSortedTickets = useMemo(() => {
-    let processed = [...tickets];
+  // OPTIMIZACIÓN: Usar useCallback para funciones que no necesitan re-crearse
+  const updateFilter = useCallback((field, value) => {
+    setFilters(prev => ({ ...prev, [field]: value }));
+  }, []);
 
-    // Aplicar filtros (copiado exactamente del web)
-    processed = processed.filter(ticket => {
+  const toggleSort = useCallback((newSortBy) => {
+    setFilters(prev => {
+      const newSortDir = prev.sortBy === newSortBy && prev.sortDir === 'asc' ? 'desc' : 'asc';
+      return { ...prev, sortBy: newSortBy, sortDir: newSortDir };
+    });
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setFilters({
+      origenNombre: '',
+      destinoNombre: '',
+      fechaDesde: '',
+      fechaHasta: '',
+      sortBy: 'fechaViaje',
+      sortDir: 'desc',
+    });
+  }, []);
+
+  // OPTIMIZACIÓN: Dividir el useMemo en partes más pequeñas para evitar recálculos innecesarios
+
+  // 1. Filtrado separado
+  const filteredTickets = useMemo(() => {
+    if (!tickets.length) return [];
+
+    return tickets.filter(ticket => {
       const origenMatch = filters.origenNombre ?
         ticket.origenViaje?.toLowerCase().includes(filters.origenNombre.toLowerCase()) : true;
 
@@ -44,80 +68,35 @@ export const useTicketsFilters = (tickets = []) => {
 
       return origenMatch && destinoMatch && fechaMatch;
     });
+  }, [tickets, filters.origenNombre, filters.destinoNombre, filters.fechaDesde, filters.fechaHasta]);
 
-    // Aplicar ordenamiento (copiado exactamente del web)
-    if (filters.sortBy) {
-      processed.sort((a, b) => {
-        let valA = a[filters.sortBy];
-        let valB = b[filters.sortBy];
+  // 2. Ordenamiento separado
+  const filteredAndSortedTickets = useMemo(() => {
+    if (!filteredTickets.length || !filters.sortBy) return filteredTickets;
 
-        if (filters.sortBy === 'fechaViaje') {
-          valA = a.fechaViaje ? new Date(a.fechaViaje) : null;
-          valB = b.fechaViaje ? new Date(b.fechaViaje) : null;
-        } else if (typeof valA === 'string' && typeof valB === 'string') {
-          valA = valA.toLowerCase();
-          valB = valB.toLowerCase();
-        }
+    const sorted = [...filteredTickets];
 
-        if (valA < valB) return filters.sortDir === 'asc' ? -1 : 1;
-        if (valA > valB) return filters.sortDir === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
+    sorted.sort((a, b) => {
+      let valA = a[filters.sortBy];
+      let valB = b[filters.sortBy];
 
-    return processed;
-  }, [tickets, filters]);
+      if (filters.sortBy === 'fechaViaje') {
+        valA = a.fechaViaje ? new Date(a.fechaViaje) : null;
+        valB = b.fechaViaje ? new Date(b.fechaViaje) : null;
+      } else if (typeof valA === 'string' && typeof valB === 'string') {
+        valA = valA.toLowerCase();
+        valB = valB.toLowerCase();
+      }
 
-  // Función para actualizar filtros (igual al web)
-  const updateFilter = (field, value) => {
-    setFilters(prev => ({ ...prev, [field]: value }));
-  };
-
-  // Función para cambiar ordenamiento (igual al web)
-  const toggleSort = (newSortBy) => {
-    setFilters(prev => {
-      const newSortDir = prev.sortBy === newSortBy && prev.sortDir === 'asc' ? 'desc' : 'asc';
-      return { ...prev, sortBy: newSortBy, sortDir: newSortDir };
+      if (valA < valB) return filters.sortDir === 'asc' ? -1 : 1;
+      if (valA > valB) return filters.sortDir === 'asc' ? 1 : -1;
+      return 0;
     });
-  };
 
-  // Limpiar filtros
-  const clearFilters = () => {
-    setFilters({
-      origenNombre: '',
-      destinoNombre: '',
-      fechaDesde: '',
-      fechaHasta: '',
-      sortBy: 'fechaViaje',
-      sortDir: 'desc',
-    });
-  };
+    return sorted;
+  }, [filteredTickets, filters.sortBy, filters.sortDir]);
 
-  // Obtener indicador de ordenamiento (igual al web)
-  const getSortIndicator = (columnName) => {
-    if (filters.sortBy === columnName) {
-      return filters.sortDir === 'asc' ? ' ▲' : ' ▼';
-    }
-    return '';
-  };
-
-  // Verificar si hay filtros activos
-  const hasActiveFilters = Boolean(
-    filters.origenNombre ||
-    filters.destinoNombre ||
-    filters.fechaDesde ||
-    filters.fechaHasta
-  );
-
-  // Estadísticas de filtros
-  const filterStats = {
-    total: tickets.length,
-    filtered: filteredAndSortedTickets.length,
-    hidden: tickets.length - filteredAndSortedTickets.length,
-    hasActiveFilters,
-  };
-
-  // Opciones únicas para sugerencias
+  // OPTIMIZACIÓN: Cachear opciones únicas solo cuando tickets cambian
   const uniqueOptions = useMemo(() => {
     const origenes = [...new Set(tickets.map(t => t.origenViaje).filter(Boolean))].sort();
     const destinos = [...new Set(tickets.map(t => t.destinoViaje).filter(Boolean))].sort();
@@ -126,10 +105,37 @@ export const useTicketsFilters = (tickets = []) => {
       origenes,
       destinos,
     };
-  }, [tickets]);
+  }, [tickets]); // Solo depende de tickets, no de filters
 
-  // Formatters para mostrar datos
-  const formatters = {
+  // OPTIMIZACIÓN: Calcular estadísticas de forma eficiente
+  const filterStats = useMemo(() => {
+    const hasActiveFilters = Boolean(
+      filters.origenNombre ||
+      filters.destinoNombre ||
+      filters.fechaDesde ||
+      filters.fechaHasta
+    );
+
+    return {
+      total: tickets.length,
+      filtered: filteredAndSortedTickets.length,
+      hidden: tickets.length - filteredAndSortedTickets.length,
+      hasActiveFilters,
+    };
+  }, [tickets.length, filteredAndSortedTickets.length, filters.origenNombre, filters.destinoNombre, filters.fechaDesde, filters.fechaHasta]);
+
+  // OPTIMIZACIÓN: Usar useCallback para funciones de utilidad
+  const getSortIndicator = useCallback((columnName) => {
+    if (filters.sortBy === columnName) {
+      return filters.sortDir === 'asc' ? ' ▲' : ' ▼';
+    }
+    return '';
+  }, [filters.sortBy, filters.sortDir]);
+
+  const hasActiveFilters = filterStats.hasActiveFilters;
+
+  // OPTIMIZACIÓN: Formatters estáticos (no necesitan ser recalculados)
+  const formatters = useMemo(() => ({
     date: (dateString) => {
       if (!dateString) return 'Fecha no disponible';
       const date = new Date(dateString);
@@ -149,7 +155,7 @@ export const useTicketsFilters = (tickets = []) => {
       if (!amount) return '$0';
       return `$${parseFloat(amount).toLocaleString('es-UY')}`;
     }
-  };
+  }), []); // Sin dependencias - son funciones puras
 
   return {
     // Estados principales
@@ -158,7 +164,7 @@ export const useTicketsFilters = (tickets = []) => {
     filterStats,
     uniqueOptions,
 
-    // Funciones principales
+    // Funciones principales (ahora optimizadas con useCallback)
     updateFilter,
     toggleSort,
     clearFilters,

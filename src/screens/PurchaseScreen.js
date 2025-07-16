@@ -23,6 +23,7 @@ export default function PurchaseScreen({ route, navigation }) {
   const [asientosOcupados, setAsientosOcupados] = useState([]);
   const [asientoSeleccionado, setAsientoSeleccionado] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [reserving, setReserving] = useState(false);
 
   useEffect(() => {
     loadTripData();
@@ -74,20 +75,68 @@ export default function PurchaseScreen({ route, navigation }) {
 
   const precios = calcularPrecio();
 
-  const handleContinuarPago = () => {
+  // Función para reservar asiento temporalmente
+  const reservarAsientoTemporalmente = async (asiento) => {
+    try {
+      setReserving(true);
+
+      const reservaDTO = {
+        viajeId: tripId,
+        clienteId: user.id,
+        numerosAsiento: [asiento] // Array con un solo asiento
+      };
+
+      console.log('🔄 Reservando asiento temporalmente:', reservaDTO);
+
+      const response = await apiClient.reservarAsientosTemporalmente(reservaDTO);
+
+      console.log('✅ Asiento reservado temporalmente:', response);
+
+      // Recargar los asientos ocupados para reflejar la reserva
+      const asientosResponse = await apiClient.get(`/api/vendedor/viajes/${tripId}/asientos-ocupados`, true);
+      setAsientosOcupados(asientosResponse || []);
+
+      return response;
+    } catch (error) {
+      console.error('❌ Error al reservar asiento:', error);
+
+      const errorMessage = error.response?.data?.message || "Ocurrió un error al procesar su solicitud.";
+      Alert.alert('Error', errorMessage);
+
+      // Si el error indica que el asiento fue ocupado, recargar datos
+      if (errorMessage.toLowerCase().includes("no está disponible")) {
+        loadTripData();
+      }
+
+      throw error;
+    } finally {
+      setReserving(false);
+    }
+  };
+
+  const handleContinuarPago = async () => {
     if (!asientoSeleccionado) {
       Alert.alert('Error', 'Por favor selecciona un asiento');
       return;
     }
 
-    // Navegar al componente PayPal nativo con todos los datos necesarios
-    navigation.navigate('PayPalNativePayment', {
-      tripId,
-      asientoSeleccionado,
-      user,
-      tripDetail,
-      precios
-    });
+    try {
+      // Primero reservar el asiento temporalmente
+      const reservaResponse = await reservarAsientoTemporalmente(asientoSeleccionado);
+
+      // Navegar al componente PayPal nativo con todos los datos necesarios
+      navigation.navigate('PayPalNativePayment', {
+        tripId,
+        asientoSeleccionado,
+        user,
+        tripDetail,
+        precios,
+        reservaExpiraEn: reservaResponse.expiracion // Pasar la fecha de expiración
+      });
+    } catch (error) {
+      // El error ya fue manejado en reservarAsientoTemporalmente
+      console.error('Error en handleContinuarPago:', error);
+    }
   };
 
   const handleSeleccionarAsiento = (numeroAsiento) => {
@@ -160,25 +209,31 @@ export default function PurchaseScreen({ route, navigation }) {
         month: 'long',
         day: 'numeric'
       });
-    } catch {
+    } catch (error) {
       return dateString;
     }
   };
 
   const formatTime = (timeString) => {
     try {
-      return timeString?.substring(0, 5) || '';
-    } catch {
-      return timeString || '';
+      if (timeString.includes('T')) {
+        return new Date(timeString).toLocaleTimeString('es-UY', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+      return timeString.substring(0, 5);
+    } catch (error) {
+      return timeString;
     }
   };
 
   if (loading) {
     return (
       <SafeAreaView style={globalStyles.safeArea}>
-        <View style={[globalStyles.centerContent, globalStyles.screenPadding]}>
+        <View style={[globalStyles.container, globalStyles.centerContent]}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={[globalStyles.textBody, globalStyles.marginBottomMd, { textAlign: 'center' }]}>
+          <Text style={[globalStyles.textBody, { marginTop: 16 }]}>
             Cargando información del viaje...
           </Text>
         </View>
@@ -200,65 +255,86 @@ export default function PurchaseScreen({ route, navigation }) {
         <View style={localStyles.placeholder} />
       </View>
 
-      <ScrollView style={globalStyles.container} contentContainerStyle={globalStyles.screenPadding}>
+      <ScrollView
+        style={globalStyles.container}
+        contentContainerStyle={globalStyles.screenPadding}
+      >
         {/* Información del viaje */}
         <View style={globalStyles.card}>
           <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
             Información del Viaje
           </Text>
 
-          <View style={[globalStyles.row, localStyles.infoRow]}>
-            <Icon name="location" size={20} color={theme.colors.textSecondary} />
-            <Text style={[globalStyles.textBody, localStyles.infoText]}>
-              {tripDetail?.origenNombre || tripDetail?.ciudadOrigen} → {tripDetail?.destinoNombre || tripDetail?.ciudadDestino}
-            </Text>
+          <View style={localStyles.infoRow}>
+            <Icon name="location-outline" size={20} color={theme.colors.textSecondary} />
+            <View style={localStyles.infoText}>
+              <Text style={globalStyles.textBody}>
+                {tripDetail?.ciudadOrigen || tripDetail?.origenNombre || 'Origen'} → {tripDetail?.ciudadDestino || tripDetail?.destinoNombre || 'Destino'}
+              </Text>
+            </View>
           </View>
 
-          <View style={[globalStyles.row, localStyles.infoRow]}>
-            <Icon name="calendar" size={20} color={theme.colors.textSecondary} />
-            <Text style={[globalStyles.textBody, localStyles.infoText]}>
-              {formatDate(tripDetail?.fecha || tripDetail?.fechaHoraSalida)}
-            </Text>
+          <View style={localStyles.infoRow}>
+            <Icon name="calendar-outline" size={20} color={theme.colors.textSecondary} />
+            <View style={localStyles.infoText}>
+              <Text style={globalStyles.textBody}>
+                {formatDate(tripDetail?.fechaSalida || tripDetail?.fecha)}
+              </Text>
+            </View>
           </View>
 
-          <View style={[globalStyles.row, localStyles.infoRow]}>
-            <Icon name="time" size={20} color={theme.colors.textSecondary} />
-            <Text style={[globalStyles.textBody, localStyles.infoText]}>
-              Salida: {formatTime(tripDetail?.horaSalida) || new Date(tripDetail?.fechaHoraSalida).toLocaleTimeString()}
-            </Text>
+          <View style={localStyles.infoRow}>
+            <Icon name="time-outline" size={20} color={theme.colors.textSecondary} />
+            <View style={localStyles.infoText}>
+              <Text style={globalStyles.textBody}>
+                {formatTime(tripDetail?.horaSalida)}
+              </Text>
+            </View>
           </View>
 
-          <View style={[globalStyles.row, localStyles.infoRow]}>
-            <Icon name="bus" size={20} color={theme.colors.textSecondary} />
-            <Text style={[globalStyles.textBody, localStyles.infoText]}>
-              {tripDetail?.omnibusMatricula || tripDetail?.busAsignado?.matricula || 'Ómnibus asignado'}
-            </Text>
+          <View style={localStyles.infoRow}>
+            <Icon name="card-outline" size={20} color={theme.colors.textSecondary} />
+            <View style={localStyles.infoText}>
+              <Text style={globalStyles.textBody}>
+                Precio: ${precios.precioBase.toFixed(2)}
+                {precios.tieneDescuento && (
+                  <Text style={{ color: theme.colors.success }}>
+                    {' '}(Descuento {user?.tipoCliente}: -${precios.descuento.toFixed(2)})
+                  </Text>
+                )}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Selección de asientos */}
+        {/* Leyenda de asientos */}
         <View style={globalStyles.card}>
           <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
-            Selecciona tu Asiento
+            Leyenda
           </Text>
 
-          {/* Leyenda */}
           <View style={localStyles.leyenda}>
             <View style={localStyles.leyendaItem}>
               <View style={[localStyles.leyendaColor, { backgroundColor: theme.colors.success }]} />
-              <Text style={globalStyles.textSmall}>Disponible</Text>
+              <Text style={globalStyles.textCaption}>Libre</Text>
             </View>
             <View style={localStyles.leyendaItem}>
               <View style={[localStyles.leyendaColor, { backgroundColor: theme.colors.primary }]} />
-              <Text style={globalStyles.textSmall}>Seleccionado</Text>
+              <Text style={globalStyles.textCaption}>Seleccionado</Text>
             </View>
             <View style={localStyles.leyendaItem}>
               <View style={[localStyles.leyendaColor, { backgroundColor: theme.colors.error }]} />
-              <Text style={globalStyles.textSmall}>Ocupado</Text>
+              <Text style={globalStyles.textCaption}>Ocupado</Text>
             </View>
           </View>
+        </View>
 
-          {/* Mapa de asientos */}
+        {/* Mapa de asientos */}
+        <View style={globalStyles.card}>
+          <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
+            Seleccionar Asiento
+          </Text>
+
           <View style={localStyles.omnibusContainer}>
             <Text style={[globalStyles.textCaption, { textAlign: 'center', marginBottom: 16 }]}>
               Frente del ómnibus
@@ -310,17 +386,27 @@ export default function PurchaseScreen({ route, navigation }) {
         <TouchableOpacity
           style={[
             asientoSeleccionado ? globalStyles.buttonPrimary : globalStyles.buttonSecondary,
-            !asientoSeleccionado && { backgroundColor: theme.colors.textSecondary }
+            !asientoSeleccionado && { backgroundColor: theme.colors.textSecondary },
+            reserving && { opacity: 0.7 }
           ]}
           onPress={handleContinuarPago}
-          disabled={!asientoSeleccionado}
+          disabled={!asientoSeleccionado || reserving}
         >
-          <Text style={[
-            asientoSeleccionado ? globalStyles.buttonText : globalStyles.buttonTextSecondary,
-            !asientoSeleccionado && { color: '#fff' }
-          ]}>
-            {asientoSeleccionado ? 'Continuar al Pago' : 'Selecciona un asiento'}
-          </Text>
+          {reserving ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <ActivityIndicator color="#fff" size="small" />
+              <Text style={[globalStyles.buttonText, { color: '#fff' }]}>
+                Reservando...
+              </Text>
+            </View>
+          ) : (
+            <Text style={[
+              asientoSeleccionado ? globalStyles.buttonText : globalStyles.buttonTextSecondary,
+              !asientoSeleccionado && { color: '#fff' }
+            ]}>
+              {asientoSeleccionado ? 'Continuar al Pago' : 'Selecciona un asiento'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -336,6 +422,7 @@ const localStyles = {
     width: 40,
   },
   infoRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
   },

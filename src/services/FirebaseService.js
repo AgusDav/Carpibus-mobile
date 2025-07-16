@@ -2,6 +2,7 @@ import messaging from '@react-native-firebase/messaging';
 import { Alert, Platform, PermissionsAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../api/client';
+import { showMessage } from "react-native-flash-message";
 
 class FirebaseService {
   constructor() {
@@ -109,7 +110,7 @@ class FirebaseService {
   // Registrar token en el backend
   async registerTokenWithBackend(token) {
     try {
-      await apiClient.put('/api/cliente/fcm-token', { token }, true);
+      await apiClient.updateFCMToken(token);
       console.log('✅ Token FCM registrado en el backend');
     } catch (error) {
       console.error('❌ Error al registrar token FCM en backend:', error);
@@ -171,17 +172,14 @@ class FirebaseService {
   showForegroundNotification(remoteMessage) {
     const { notification, data } = remoteMessage;
 
-    Alert.alert(
-      notification?.title || 'Notificación',
-      notification?.body || 'Tienes una nueva notificación',
-      [
-        { text: 'Cerrar', style: 'cancel' },
-        {
-          text: 'Ver',
-          onPress: () => this.handleNotificationTap(remoteMessage)
-        }
-      ]
-    );
+    showMessage({
+      message: notification?.title || 'Notificación',
+      description: notification?.body || 'Tienes una nueva notificación',
+      type: "info",
+      duration: 4000, // Duración en milisegundos
+      onPress: () => this.handleNotificationTap(remoteMessage),
+      icon: 'info'
+    });
   }
 
   // Manejar tap en notificación

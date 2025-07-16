@@ -79,14 +79,11 @@ export default function LoginScreen({ navigation }) {
         <View style={[globalStyles.centerContent, globalStyles.screenPadding]}>
           {/* Logo/Header */}
           <View style={[globalStyles.centerContent, localStyles.logoSection]}>
-            {/* Reemplaza el ícono del bus con tu logo */}
             <Image
-              source={require('../../assets/images/logo.png')} // 👈 Agrega tu logo aquí
+              source={require('../../assets/images/logo.png')}
               style={localStyles.logo}
               resizeMode="contain"
             />
-            {/* Fallback en caso de que no tengas el logo aún */}
-            {/* <Icon name="bus" size={64} color={theme.colors.primary} /> */}
 
             <Text style={[globalStyles.textHeading1, { color: theme.colors.primary, textAlign: 'center' }]}>
               Carpibus

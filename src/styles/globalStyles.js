@@ -1,22 +1,70 @@
-// styles/globalStyles.js
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 import { theme } from './theme';
 
 export const globalStyles = StyleSheet.create({
-  // Contenedores
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
+  // ================================
+  // CONTENEDORES Y LAYOUT
+  // ================================
 
+  // SafeArea mejorada para manejo de notch y barras
   safeArea: {
     flex: 1,
     backgroundColor: theme.colors.background,
   },
 
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+
+  // Padding para pantallas principales
   screenPadding: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.lg,
+    padding: theme.spacing.lg,
+  },
+
+  // ================================
+  // HEADERS Y NAVEGACIÓN
+  // ================================
+
+  header: {
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    ...theme.shadows.sm,
+  },
+
+  headerTitle: {
+    fontSize: theme.typography.h2.fontSize,
+    fontWeight: '600',
+    color: theme.colors.text,
+    textAlign: 'center',
+  },
+
+  // ================================
+  // TARJETAS Y COMPONENTES
+  // ================================
+
+  card: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.spacing.md,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+    ...theme.shadows.md,
+  },
+
+  // ================================
+  // LAYOUT Y FLEXBOX
+  // ================================
+
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  spaceBetween: {
+    justifyContent: 'space-between',
   },
 
   centerContent: {
@@ -24,28 +72,65 @@ export const globalStyles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // Tarjetas y superficies
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-    ...theme.shadows.sm,
+  flex1: {
+    flex: 1,
   },
 
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+  // ================================
+  // TIPOGRAFÍA
+  // ================================
+
+  textHeading1: {
+    fontSize: theme.typography.h1.fontSize,
+    fontWeight: theme.typography.h1.fontWeight,
+    color: theme.colors.text,
+    lineHeight: theme.typography.h1.lineHeight,
   },
 
-  // Botones
+  textHeading2: {
+    fontSize: theme.typography.h2.fontSize,
+    fontWeight: theme.typography.h2.fontWeight,
+    color: theme.colors.text,
+    lineHeight: theme.typography.h2.lineHeight,
+  },
+
+  textHeading3: {
+    fontSize: theme.typography.h3.fontSize,
+    fontWeight: theme.typography.h3.fontWeight,
+    color: theme.colors.text,
+    lineHeight: theme.typography.h3.lineHeight,
+  },
+
+  textBody: {
+    fontSize: theme.typography.body.fontSize,
+    fontWeight: theme.typography.body.fontWeight,
+    color: theme.colors.text,
+    lineHeight: theme.typography.body.lineHeight,
+  },
+
+  textCaption: {
+    fontSize: theme.typography.caption.fontSize,
+    fontWeight: theme.typography.caption.fontWeight,
+    color: theme.colors.textSecondary,
+    lineHeight: theme.typography.caption.lineHeight,
+  },
+
+  textSmall: {
+    fontSize: theme.typography.small.fontSize,
+    fontWeight: theme.typography.small.fontWeight,
+    color: theme.colors.textSecondary,
+    lineHeight: theme.typography.small.lineHeight,
+  },
+
+  // ================================
+  // BOTONES
+  // ================================
+
   buttonPrimary: {
     backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.md,
-    paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     ...theme.shadows.sm,
@@ -53,11 +138,11 @@ export const globalStyles = StyleSheet.create({
 
   buttonSecondary: {
     backgroundColor: 'transparent',
-    borderColor: theme.colors.primary,
     borderWidth: 1,
-    borderRadius: theme.borderRadius.md,
-    paddingHorizontal: theme.spacing.lg,
+    borderColor: theme.colors.primary,
     paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -74,111 +159,34 @@ export const globalStyles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Inputs
-  input: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.borderRadius.md,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    fontSize: theme.typography.body.fontSize,
-    color: theme.colors.text,
-  },
+  // ================================
+  // LISTAS
+  // ================================
 
-  inputFocused: {
-    borderColor: theme.colors.primary,
-    borderWidth: 2,
-  },
-
-  inputError: {
-    borderColor: theme.colors.error,
-  },
-
-  // Textos
-  textHeading1: {
-    ...theme.typography.h1,
-    color: theme.colors.text,
-  },
-
-  textHeading2: {
-    ...theme.typography.h2,
-    color: theme.colors.text,
-  },
-
-  textHeading3: {
-    ...theme.typography.h3,
-    color: theme.colors.text,
-  },
-
-  textBody: {
-    ...theme.typography.body,
-    color: theme.colors.text,
-  },
-
-  textCaption: {
-    ...theme.typography.caption,
-    color: theme.colors.textSecondary,
-  },
-
-  textSmall: {
-    ...theme.typography.small,
-    color: theme.colors.textSecondary,
-  },
-
-  textError: {
-    ...theme.typography.caption,
-    color: theme.colors.error,
-  },
-
-  // Listas
   listItem: {
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
 
   listItemFirst: {
-    borderTopLeftRadius: theme.borderRadius.md,
-    borderTopRightRadius: theme.borderRadius.md,
+    borderTopLeftRadius: theme.spacing.sm,
+    borderTopRightRadius: theme.spacing.sm,
   },
 
   listItemLast: {
-    borderBottomLeftRadius: theme.borderRadius.md,
-    borderBottomRightRadius: theme.borderRadius.md,
     borderBottomWidth: 0,
+    borderBottomLeftRadius: theme.spacing.sm,
+    borderBottomRightRadius: theme.spacing.sm,
   },
 
-  // Navegación
-  header: {
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    ...theme.shadows.sm,
-  },
+  // ================================
+  // ESPACIADO
+  // ================================
 
-  headerTitle: {
-    ...theme.typography.h3,
-    color: theme.colors.text,
-    textAlign: 'center',
-  },
-
-  // Utilidades
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  spaceBetween: {
-    justifyContent: 'space-between',
-  },
-
-  flex1: {
-    flex: 1,
+  marginBottomXs: {
+    marginBottom: theme.spacing.xs,
   },
 
   marginBottomSm: {
@@ -193,11 +201,74 @@ export const globalStyles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
   },
 
-  paddingHorizontalMd: {
-    paddingHorizontal: theme.spacing.md,
+  marginBottomXl: {
+    marginBottom: theme.spacing.xl,
   },
 
-  paddingVerticalMd: {
+  // ================================
+  // ESTADOS Y UTILIDADES
+  // ================================
+
+  disabled: {
+    opacity: 0.5,
+  },
+
+  hidden: {
+    display: 'none',
+  },
+
+  // ================================
+  // INPUTS Y FORMULARIOS
+  // ================================
+
+  input: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.spacing.sm,
     paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    fontSize: theme.typography.body.fontSize,
+    color: theme.colors.text,
+    backgroundColor: theme.colors.surface,
+  },
+
+  inputFocused: {
+    borderColor: theme.colors.primary,
+  },
+
+  inputError: {
+    borderColor: theme.colors.error,
+  },
+
+  // ================================
+  // LOADING Y ESTADOS VACÍOS
+  // ================================
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.xl,
+  },
+
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.xl,
+  },
+
+  // ================================
+  // ESPECÍFICOS PARA TABS (NUEVO)
+  // ================================
+
+  tabScreen: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+
+  tabContent: {
+    flex: 1,
+    paddingHorizontal: theme.spacing.lg,
   },
 });

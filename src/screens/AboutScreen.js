@@ -6,10 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   Linking,
+  Dimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { globalStyles } from '../styles/globalStyles';
 import { useTheme } from '../hooks/useTheme';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 export default function AboutScreen({ navigation }) {
   const theme = useTheme();
@@ -176,32 +179,22 @@ export default function AboutScreen({ navigation }) {
             <FeatureItem
               icon="search"
               title="Búsqueda Fácil"
-              description="Encuentra y compra pasajes de forma rápida y sencilla"
+              description="Encuentra rápidamente los viajes que necesitas"
             />
             <FeatureItem
-              icon="card"
-              title="Pago Seguro"
-              description="Múltiples métodos de pago con la máxima seguridad"
+              icon="phone-portrait"
+              title="Reserva Móvil"
+              description="Compra tus pasajes desde tu teléfono"
             />
             <FeatureItem
               icon="notifications"
               title="Notificaciones"
-              description="Recibe actualizaciones sobre tus viajes en tiempo real"
+              description="Mantente informado sobre tus viajes"
             />
             <FeatureItem
-              icon="time"
-              title="Historial de Viajes"
-              description="Consulta todos tus viajes anteriores y futuros"
-            />
-            <FeatureItem
-              icon="location"
-              title="Seguimiento"
-              description="Rastrea tu ómnibus en tiempo real durante el viaje"
-            />
-            <FeatureItem
-              icon="star"
-              title="Sistema de Puntos"
-              description="Acumula puntos y obtén beneficios exclusivos"
+              icon="card"
+              title="Pago Seguro"
+              description="Múltiples opciones de pago con total seguridad"
             />
           </View>
         </View>
@@ -209,61 +202,41 @@ export default function AboutScreen({ navigation }) {
         {/* Certificaciones */}
         <View style={globalStyles.card}>
           <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
-            Certificaciones
+            Certificaciones y Reconocimientos
           </Text>
           <View style={localStyles.certificationsContainer}>
             <View style={[globalStyles.row, localStyles.certificationItem]}>
-              <Icon name="medal" size={24} color="#FFD700" />
-              <Text style={[globalStyles.textBody, { fontWeight: '500', marginLeft: 12 }]}>
-                ISO 9001:2015
-              </Text>
+              <Icon name="ribbon" size={24} color={theme.colors.success} style={{ marginRight: 12 }} />
+              <Text style={globalStyles.textBody}>Certificación ISO 9001:2015</Text>
             </View>
             <View style={[globalStyles.row, localStyles.certificationItem]}>
-              <Icon name="shield-checkmark" size={24} color={theme.colors.success} />
-              <Text style={[globalStyles.textBody, { fontWeight: '500', marginLeft: 12 }]}>
-                Certificación de Seguridad MTOP
-              </Text>
+              <Icon name="shield-checkmark" size={24} color={theme.colors.success} style={{ marginRight: 12 }} />
+              <Text style={globalStyles.textBody}>Empresa Segura Certificada</Text>
             </View>
             <View style={[globalStyles.row, localStyles.certificationItem]}>
-              <Icon name="leaf" size={24} color={theme.colors.success} />
-              <Text style={[globalStyles.textBody, { fontWeight: '500', marginLeft: 12 }]}>
-                Empresa Carbono Neutral
-              </Text>
+              <Icon name="leaf" size={24} color={theme.colors.success} style={{ marginRight: 12 }} />
+              <Text style={globalStyles.textBody}>Sello Verde Empresarial</Text>
             </View>
           </View>
         </View>
 
-        {/* Información de contacto corporativo */}
+        {/* Información de contacto */}
         <View style={globalStyles.card}>
           <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
-            Oficinas Centrales
+            Contacto
           </Text>
           <View style={localStyles.contactInfo}>
             <View style={[globalStyles.row, localStyles.contactItem]}>
-              <Icon name="location" size={20} color={theme.colors.textSecondary} />
-              <Text style={[globalStyles.textCaption, { marginLeft: 12, flex: 1 }]}>
-                Av. 18 de Julio 1234, Montevideo, Uruguay
-              </Text>
+              <Icon name="call" size={20} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
+              <Text style={globalStyles.textBody}>0800 1234</Text>
             </View>
             <View style={[globalStyles.row, localStyles.contactItem]}>
-              <Icon name="call" size={20} color={theme.colors.textSecondary} />
-              <Text style={[globalStyles.textCaption, { marginLeft: 12, flex: 1 }]}>
-                +598 2 123 4567
-              </Text>
+              <Icon name="mail" size={20} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
+              <Text style={globalStyles.textBody}>info@carpibus.com.uy</Text>
             </View>
             <View style={[globalStyles.row, localStyles.contactItem]}>
-              <Icon name="mail" size={20} color={theme.colors.textSecondary} />
-              <Text style={[globalStyles.textCaption, { marginLeft: 12, flex: 1 }]}>
-                info@carpibus.com.uy
-              </Text>
-            </View>
-            <View style={[globalStyles.row, localStyles.contactItem]}>
-              <Icon name="globe" size={20} color={theme.colors.textSecondary} />
-              <TouchableOpacity onPress={() => openURL('https://www.carpibus.com.uy')}>
-                <Text style={[globalStyles.textCaption, { marginLeft: 12, color: theme.colors.primary }]}>
-                  www.carpibus.com.uy
-                </Text>
-              </TouchableOpacity>
+              <Icon name="location" size={20} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
+              <Text style={globalStyles.textBody}>Terminal Tres Cruces, Montevideo</Text>
             </View>
           </View>
         </View>
@@ -271,34 +244,30 @@ export default function AboutScreen({ navigation }) {
         {/* Redes sociales */}
         <View style={globalStyles.card}>
           <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
-            Síguenos en Redes Sociales
+            Síguenos
           </Text>
           <View style={localStyles.socialMedia}>
             <TouchableOpacity
-              style={[localStyles.socialButton, { backgroundColor: theme.colors.background }]}
+              style={[localStyles.socialButton, { backgroundColor: '#3b5998' }]}
               onPress={() => openURL('https://facebook.com/carpibus')}
             >
-              <Icon name="logo-facebook" size={20} color="#1877F2" />
-              <Text style={[globalStyles.textCaption, { fontWeight: '500', marginLeft: 8 }]}>
-                Facebook
-              </Text>
+              <Icon name="logo-facebook" size={20} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={[globalStyles.textBody, { color: '#fff' }]}>Facebook</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[localStyles.socialButton, { backgroundColor: theme.colors.background }]}
-              onPress={() => openURL('https://instagram.com/carpibus')}
+              style={[localStyles.socialButton, { backgroundColor: '#1da1f2' }]}
+              onPress={() => openURL('https://twitter.com/carpibus')}
             >
-              <Icon name="logo-instagram" size={20} color="#E4405F" />
-              <Text style={[globalStyles.textCaption, { fontWeight: '500', marginLeft: 8 }]}>
-                Instagram
-              </Text>
+              <Icon name="logo-twitter" size={20} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={[globalStyles.textBody, { color: '#fff' }]}>Twitter</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Copyright */}
-        <View style={[globalStyles.card, globalStyles.centerContent, localStyles.copyrightSection]}>
-          <Text style={[globalStyles.textSmall, { textAlign: 'center', marginBottom: 4 }]}>
-            © 2025 Carpibus S.A. Todos los derechos reservados.
+        <View style={[globalStyles.card, localStyles.copyrightSection]}>
+          <Text style={[globalStyles.textSmall, { textAlign: 'center', marginBottom: 8 }]}>
+            © 2024 Carpibus S.A. Todos los derechos reservados.
           </Text>
           <Text style={[globalStyles.textSmall, { textAlign: 'center', fontStyle: 'italic' }]}>
             Desarrollado con ❤️ en Uruguay
@@ -309,7 +278,7 @@ export default function AboutScreen({ navigation }) {
   );
 }
 
-// Estilos locales específicos
+// Estilos locales específicos con mejoras para el layout responsivo
 const localStyles = {
   logoSection: {
     paddingVertical: 32,
@@ -322,17 +291,22 @@ const localStyles = {
     alignItems: 'center',
     marginBottom: 16,
   },
+  // Nuevo sistema de grid más robusto para las estadísticas
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 12,
+    marginHorizontal: -6, // Compensar el margen de las tarjetas
   },
+  // Tarjeta de estadísticas con ancho calculado dinámicamente
   statCard: {
-    width: '48%',
+    // Calcular el ancho para asegurar exactamente 2 columnas
+    width: (screenWidth - 48 - 24 - 12) / 2, // screenWidth - padding lateral - card padding - gap entre tarjetas
     alignItems: 'center',
     marginBottom: 12,
+    marginHorizontal: 6, // Espacio entre tarjetas
     paddingVertical: 20,
+    minHeight: 140, // Altura mínima para consistencia
   },
   statValue: {
     marginTop: 8,
@@ -341,6 +315,7 @@ const localStyles = {
   statTitle: {
     textAlign: 'center',
     fontWeight: '600',
+    lineHeight: 18,
   },
   valuesContainer: {
     gap: 16,
@@ -375,7 +350,7 @@ const localStyles = {
   },
   socialMedia: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     gap: 16,
   },
   socialButton: {

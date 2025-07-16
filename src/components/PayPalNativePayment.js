@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { apiClient } from '../api/client';
@@ -15,10 +14,12 @@ import { globalStyles } from '../styles/globalStyles';
 import { useTheme } from '../hooks/useTheme';
 
 const PayPalNativePayment = ({ route, navigation }) => {
-  const { tripId, asientoSeleccionado, user, tripDetail, precios } = route.params;
+  const { tripId, asientoSeleccionado, user, tripDetail, precios, reservaExpiraEn } = route.params;
   const theme = useTheme();
   const [loading, setLoading] = useState(false);
   const [paypalOrderId, setPaypalOrderId] = useState(null);
+  const [tiempoRestante, setTiempoRestante] = useState("10:00");
+  const [reservaExpirada, setReservaExpirada] = useState(false);
 
   // Funciones de formateo
   const formatDate = (dateString) => {
@@ -50,109 +51,154 @@ const PayPalNativePayment = ({ route, navigation }) => {
     }
   };
 
-  // Función para registrar compra en backend
-  const registrarCompraEnBackend = async (paypalOrderId) => {
-    try {
-      const response = await apiClient.post('/api/cliente/compra-paypal/confirmar', {
-        paypalOrderId,
-        tripId,
-        asientoSeleccionado,
-        userId: user.id,
-        precioFinal: precios.precioFinal,
-      }, true);
+  // Hook para manejar el temporizador de reserva
+  useEffect(() => {
+    if (!reservaExpiraEn) {
+      setReservaExpirada(true);
+      return;
+    }
 
-      console.log('✅ Compra registrada exitosamente:', response);
-      return response;
+    const interval = setInterval(() => {
+      const segundosTotales = Math.round((new Date(reservaExpiraEn) - new Date()) / 1000);
+      if (segundosTotales <= 0) {
+        setTiempoRestante("00:00");
+        setReservaExpirada(true);
+        clearInterval(interval);
+        Alert.alert(
+          'Reserva Expirada',
+          'Tu reserva ha expirado. Por favor, selecciona nuevamente tu asiento.',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack()
+            }
+          ]
+        );
+      } else {
+        const minutos = Math.floor(segundosTotales / 60);
+        const segundos = segundosTotales % 60;
+        setTiempoRestante(`${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [reservaExpiraEn, navigation]);
+
+  // Función para confirmar compra usando el endpoint existente
+  const confirmarCompraEnBackend = async (paypalOrderId) => {
+    try {
+      setLoading(true);
+
+      console.log('🔄 Confirmando compra en backend con PayPal Order ID:', paypalOrderId);
+
+      // 1. Primero capturar el pago en PayPal para obtener el transaction ID
+      const captureDetails = await apiClient.capturarPagoPayPal(paypalOrderId);
+      console.log('💰 Captura de PayPal:', captureDetails);
+
+      if (captureDetails.status !== 'COMPLETED') {
+        throw new Error('El pago no pudo ser completado en PayPal.');
+      }
+
+      // 2. Extraer el transaction ID de la captura
+      let transactionId = null;
+      if (captureDetails.purchase_units && captureDetails.purchase_units[0]?.payments?.captures?.[0]?.id) {
+        transactionId = captureDetails.purchase_units[0].payments.captures[0].id;
+      }
+
+      if (!transactionId) {
+        throw new Error('No se pudo obtener el ID de la transacción de PayPal.');
+      }
+
+      console.log('🆔 Transaction ID obtenido:', transactionId);
+
+      // 3. Confirmar la compra usando el endpoint existente de comprar-multiple
+      const compraMultipleDTO = {
+        viajeId: tripId,
+        clienteId: user.id,
+        numerosAsiento: [asientoSeleccionado], // Array con un solo asiento
+        paypalTransactionId: transactionId
+      };
+
+      console.log('📝 Confirmando compra con DTO:', compraMultipleDTO);
+
+      const confirmarResponse = await apiClient.confirmarCompraPasajes(compraMultipleDTO);
+
+      console.log('✅ Compra confirmada exitosamente:', confirmarResponse);
+
+      // 4. Mostrar éxito y navegar
+      Alert.alert(
+        '🎉 ¡Compra Exitosa!',
+        `Tu pasaje para el asiento ${asientoSeleccionado} ha sido comprado exitosamente. Recibirás los detalles por email.`,
+        [
+          {
+            text: 'Ver Mis Pasajes',
+            onPress: () => navigation.navigate('Home', { screen: 'Mis Pasajes' })
+          }
+        ]
+      );
+
     } catch (error) {
-      console.error('❌ Error al registrar compra:', error);
-      throw error;
+      console.error('❌ Error al confirmar compra:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Hubo un problema al confirmar tu compra. Contacta soporte si el pago fue descontado.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
   // Función principal para procesar pago con PayPal
   const procesarPagoPayPal = async () => {
+    if (reservaExpirada) {
+      Alert.alert('Reserva Expirada', 'Tu reserva ha expirado. Selecciona nuevamente tu asiento.');
+      navigation.goBack();
+      return;
+    }
+
     try {
       setLoading(true);
 
-      // 1. Crear orden de pago en el backend
-      const orderResponse = await apiClient.post('/api/cliente/compra-paypal/crear-orden', {
-        tripId,
-        asientoSeleccionado,
-        userId: user.id,
-        precioFinal: precios.precioFinal,
-      }, true);
+      console.log('🔄 Iniciando proceso de pago PayPal...');
 
-      console.log('✅ Orden PayPal creada:', orderResponse);
+      // 1. Crear orden de pago usando el endpoint existente de PayPal
+      const paypalOrder = await apiClient.crearOrdenPayPal(precios.precioFinal);
+      console.log('✅ Orden PayPal creada:', paypalOrder);
 
-      if (!orderResponse?.paypalOrderId || !orderResponse?.approvalUrl) {
+      if (!paypalOrder.id) {
         throw new Error('No se pudo crear la orden de pago');
       }
 
-      const { paypalOrderId, approvalUrl } = orderResponse;
-      setPaypalOrderId(paypalOrderId);
+      // 2. Extraer approval URL
+      const approvalUrl = paypalOrder.links?.find(link => link.rel === 'approve')?.href;
 
-      // 2. Abrir PayPal en navegador o WebView
-      const supported = await Linking.canOpenURL(approvalUrl);
-      if (supported) {
-        await Linking.openURL(approvalUrl);
-
-        // 3. Escuchar cuando regrese de PayPal
-        Linking.addEventListener('url', async (event) => {
-          const { url } = event;
-          console.log('🔗 URL recibida:', url);
-
-          if (url.includes('success') && url.includes(paypalOrderId)) {
-            try {
-              setLoading(true);
-              await registrarCompraEnBackend(paypalOrderId);
-
-              Alert.alert(
-                '¡Compra Exitosa! 🎉',
-                `Tu pasaje ha sido comprado.\n\nViaje: ${tripDetail?.ciudadOrigen || tripDetail?.origenNombre} → ${tripDetail?.ciudadDestino || tripDetail?.destinoNombre}\nAsiento: ${asientoSeleccionado}\nPrecio: $${precios.precioFinal.toFixed(2)}`,
-                [
-                  {
-                    text: 'Ver Mis Pasajes',
-                    onPress: () => navigation.navigate('Home', { screen: 'Mis Pasajes' })
-                  }
-                ]
-              );
-            } catch (error) {
-              Alert.alert('Error', 'El pago fue exitoso pero hubo un problema al registrar tu pasaje. Contacta soporte.');
-            } finally {
-              setLoading(false);
-            }
-          } else if (url.includes('cancel')) {
-            Alert.alert('Pago Cancelado', 'Has cancelado el proceso de pago.');
-            setLoading(false);
-          }
-
-          // Limpiar listener
-          setPaypalOrderId(null);
-        });
-
-      } else {
-        // Fallback: usar WebView interno
-        navigation.navigate('PayPalWebView', {
-          paypalUrl: approvalUrl,
-          paypalOrderId,
-          onPaymentSuccess: async () => {
-            try {
-              await registrarCompraEnBackend(paypalOrderId);
-              Alert.alert('¡Compra Exitosa! 🎉', 'Tu pasaje ha sido comprado.');
-              navigation.navigate('Home', { screen: 'Mis Pasajes' });
-            } catch (error) {
-              Alert.alert('Error', 'Problema al procesar la compra');
-            }
-          },
-          onPaymentCancel: () => {
-            Alert.alert('Pago Cancelado', 'Has cancelado el proceso de pago.');
-          }
-        });
+      if (!approvalUrl) {
+        throw new Error('No se pudo obtener la URL de aprobación de PayPal');
       }
 
+      setPaypalOrderId(paypalOrder.id);
+
+      // 3. Navegar al WebView de PayPal en lugar de abrir navegador externo
+      navigation.navigate('PayPalWebView', {
+        paypalUrl: approvalUrl,
+        orderId: paypalOrder.id,
+        orderData: paypalOrder,
+        onPaymentSuccess: (orderId) => {
+          console.log('🎉 Pago exitoso detectado:', orderId);
+          confirmarCompraEnBackend(orderId);
+        },
+        onPaymentCancel: () => {
+          console.log('❌ Pago cancelado por el usuario');
+          Alert.alert('Pago Cancelado', 'Has cancelado el proceso de pago.');
+          setPaypalOrderId(null);
+        }
+      });
+
     } catch (error) {
-      console.error('Error en procesarPagoPayPal:', error);
+      console.error('❌ Error en procesarPagoPayPal:', error);
       Alert.alert('Error', error.message || 'No se pudo iniciar el pago');
+      setPaypalOrderId(null);
     } finally {
       setLoading(false);
     }
@@ -165,6 +211,7 @@ const PayPalNativePayment = ({ route, navigation }) => {
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={localStyles.backButton}
+          disabled={loading}
         >
           <Icon name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
@@ -176,6 +223,32 @@ const PayPalNativePayment = ({ route, navigation }) => {
         style={globalStyles.container}
         contentContainerStyle={globalStyles.screenPadding}
       >
+        {/* Timer de reserva */}
+        {!reservaExpirada && (
+          <View style={[globalStyles.card, { backgroundColor: reservaExpirada ? theme.colors.error : theme.colors.primary }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="timer-outline" size={20} color="#fff" />
+              <Text style={[globalStyles.textBody, { color: '#fff', marginLeft: 8, fontWeight: '600' }]}>
+                Tiempo restante: {tiempoRestante}
+              </Text>
+            </View>
+            <Text style={[globalStyles.textCaption, { color: '#fff', textAlign: 'center', marginTop: 4 }]}>
+              Tu asiento está reservado
+            </Text>
+          </View>
+        )}
+
+        {reservaExpirada && (
+          <View style={[globalStyles.card, { backgroundColor: theme.colors.error }]}>
+            <Text style={[globalStyles.textBody, { color: '#fff', textAlign: 'center', fontWeight: '600' }]}>
+              ⏰ Reserva Expirada
+            </Text>
+            <Text style={[globalStyles.textCaption, { color: '#fff', textAlign: 'center', marginTop: 4 }]}>
+              Tu reserva ha expirado. Selecciona nuevamente tu asiento.
+            </Text>
+          </View>
+        )}
+
         {/* Resumen del viaje */}
         <View style={globalStyles.card}>
           <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
@@ -197,96 +270,68 @@ const PayPalNativePayment = ({ route, navigation }) => {
               <Icon name="calendar-outline" size={16} color={theme.colors.textSecondary} />
               <Text style={[globalStyles.textCaption, localStyles.detailLabel]}>Fecha:</Text>
               <Text style={[globalStyles.textBody, localStyles.detailValue]}>
-                {formatDate(
-                  tripDetail?.fechaHoraSalida ||
-                  tripDetail?.fecha ||
-                  tripDetail?.fechaSalida
-                )}
+                {formatDate(tripDetail?.fechaSalida || tripDetail?.fecha)}
               </Text>
             </View>
 
             <View style={localStyles.detailRow}>
               <Icon name="time-outline" size={16} color={theme.colors.textSecondary} />
-              <Text style={[globalStyles.textCaption, localStyles.detailLabel]}>Hora salida:</Text>
+              <Text style={[globalStyles.textCaption, localStyles.detailLabel]}>Hora:</Text>
               <Text style={[globalStyles.textBody, localStyles.detailValue]}>
-                {formatTime(
-                  tripDetail?.fechaHoraSalida ||
-                  tripDetail?.horaSalida ||
-                  tripDetail?.fechaSalida
-                )}
+                {formatTime(tripDetail?.horaSalida)}
               </Text>
             </View>
 
             <View style={localStyles.detailRow}>
-              <Icon name="time-outline" size={16} color={theme.colors.textSecondary} />
-              <Text style={[globalStyles.textCaption, localStyles.detailLabel]}>Hora llegada:</Text>
-              <Text style={[globalStyles.textBody, localStyles.detailValue]}>
-                {formatTime(
-                  tripDetail?.fechaHoraLlegada ||
-                  tripDetail?.horaLlegada ||
-                  tripDetail?.fechaLlegada
-                ) || 'No disponible'}
-              </Text>
-            </View>
-
-            {/* Información del ómnibus */}
-            {(tripDetail?.omnibusMatricula || tripDetail?.matriculaOmnibus) && (
-              <View style={localStyles.detailRow}>
-                <Icon name="bus-outline" size={16} color={theme.colors.textSecondary} />
-                <Text style={[globalStyles.textCaption, localStyles.detailLabel]}>Matrícula:</Text>
-                <Text style={[globalStyles.textBody, localStyles.detailValue]}>
-                  {tripDetail?.omnibusMatricula || tripDetail?.matriculaOmnibus}
-                </Text>
-              </View>
-            )}
-
-            <View style={localStyles.detailRow}>
-              <Icon name="person-outline" size={16} color={theme.colors.textSecondary} />
+              <Icon name="bus-outline" size={16} color={theme.colors.textSecondary} />
               <Text style={[globalStyles.textCaption, localStyles.detailLabel]}>Asiento:</Text>
-              <Text style={[globalStyles.textBody, localStyles.detailValue]}>{asientoSeleccionado}</Text>
+              <Text style={[globalStyles.textBody, localStyles.detailValue, { fontWeight: '600' }]}>
+                #{asientoSeleccionado}
+              </Text>
             </View>
           </View>
         </View>
 
-        {/* Desglose de precio */}
+        {/* Detalles de precio */}
         <View style={globalStyles.card}>
           <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
-            Desglose del Precio
+            Detalles del Precio
           </Text>
 
           <View style={localStyles.priceRow}>
-            <Text style={globalStyles.textCaption}>Precio base</Text>
-            <Text style={[globalStyles.textBody, { fontWeight: '500' }]}>${precios.precioBase.toFixed(2)}</Text>
+            <Text style={globalStyles.textBody}>Precio base:</Text>
+            <Text style={globalStyles.textBody}>${precios.precioBase.toFixed(2)}</Text>
           </View>
 
           {precios.tieneDescuento && (
             <View style={localStyles.priceRow}>
-              <Text style={[globalStyles.textCaption, { color: theme.colors.success }]}>
-                Descuento ({user.tipoCliente}):
+              <Text style={[globalStyles.textBody, { color: theme.colors.success }]}>
+                Descuento ({user?.tipoCliente}):
               </Text>
-              <Text style={[globalStyles.textBody, { fontWeight: '500', color: theme.colors.success }]}>
+              <Text style={[globalStyles.textBody, { color: theme.colors.success }]}>
                 -${precios.descuento.toFixed(2)}
               </Text>
             </View>
           )}
 
           <View style={localStyles.totalRow}>
-            <Text style={[globalStyles.textHeading3, { color: theme.colors.text }]}>Total a pagar</Text>
-            <Text style={[globalStyles.textHeading2, { color: theme.colors.primary }]}>${precios.precioFinal.toFixed(2)}</Text>
+            <Text style={[globalStyles.textHeading3, { color: theme.colors.text }]}>Total a pagar:</Text>
+            <Text style={[globalStyles.textHeading2, { color: theme.colors.primary }]}>
+              ${precios.precioFinal.toFixed(2)}
+            </Text>
           </View>
         </View>
 
-        {/* Métodos de pago */}
-        <View style={globalStyles.card}>
-          <Text style={[globalStyles.textHeading3, globalStyles.marginBottomMd]}>
-            Métodos de Pago
-          </Text>
-
-          {/* Botón PayPal */}
+        {/* Botón de pago */}
+        <View style={{ marginTop: 20 }}>
           <TouchableOpacity
-            style={[localStyles.paymentButton, localStyles.paypalButton]}
+            style={[
+              localStyles.paymentButton,
+              localStyles.paypalButton,
+              (loading || reservaExpirada) && { opacity: 0.6 }
+            ]}
             onPress={procesarPagoPayPal}
-            disabled={loading}
+            disabled={loading || reservaExpirada}
           >
             {loading ? (
               <ActivityIndicator color="#fff" size="small" />
@@ -305,7 +350,8 @@ const PayPalNativePayment = ({ route, navigation }) => {
             Información Importante
           </Text>
           <Text style={[globalStyles.textCaption, { lineHeight: 20 }]}>
-            • Tu asiento quedará reservado durante el proceso de pago{'\n'}
+            • Tu asiento está reservado por 10 minutos{'\n'}
+            • Completa el pago antes de que expire la reserva{'\n'}
             • El pasaje será enviado por email tras confirmar el pago{'\n'}
             • Presenta tu pasaje al conductor antes del viaje{'\n'}
             • Las cancelaciones deben realizarse con al menos 24 horas de anticipación
@@ -367,7 +413,6 @@ const localStyles = {
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
-    marginBottom: 12,
     gap: 8,
   },
   paypalButton: {

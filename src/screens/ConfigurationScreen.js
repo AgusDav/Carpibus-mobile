@@ -23,6 +23,11 @@ export default function ConfigurationScreen({ navigation }) {
   const [passwordMode, setPasswordMode] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Estados para notificaciones
+    const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+    const [notificationPermission, setNotificationPermission] = useState(null);
+    const [checkingNotifications, setCheckingNotifications] = useState(true);
+
   // Estado para edición de perfil
   const [formData, setFormData] = useState({
     nombre: '',
@@ -55,6 +60,97 @@ export default function ConfigurationScreen({ navigation }) {
       });
     }
   }, [contextUser]);
+
+  // Verificar configuración de notificaciones
+    const checkNotificationSettings = async () => {
+      try {
+        setCheckingNotifications(true);
+
+        // Verificar permisos del sistema
+        const hasSystemPermission = await FirebaseService.V();
+        setNotificationPermission(hasSystemPermission);
+
+        // Verificar configuración local del usuario
+        const localSetting = await AsyncStorage.getItem('notifications_enabled');
+        const isLocallyEnabled = localSetting !== null ? JSON.parse(localSetting) : true;
+
+        // Las notificaciones están habilitadas si AMBOS están activos
+        setNotificationsEnabled(hasSystemPermission && isLocallyEnabled);
+      } catch (error) {
+        console.error('Error checking notification settings:', error);
+        setNotificationPermission(false);
+        setNotificationsEnabled(false);
+      } finally {
+        setCheckingNotifications(false);
+      }
+    };
+
+    // Manejar cambio de configuración de notificaciones
+    const handleNotificationToggle = async (value) => {
+      try {
+        if (value) {
+          // El usuario quiere habilitar notificaciones
+          if (!notificationPermission) {
+            // No hay permisos del sistema, pedirlos
+            Alert.alert(
+              'Permisos Requeridos',
+              'Para recibir notificaciones, necesitas habilitar los permisos en la configuración del sistema.',
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                  text: 'Abrir Configuración',
+                  onPress: () => openSystemSettings()
+                }
+              ]
+            );
+            return;
+          }
+
+          // Hay permisos del sistema, habilitar localmente
+          await AsyncStorage.setItem('notifications_enabled', JSON.stringify(true));
+          setNotificationsEnabled(true);
+
+          // Re-inicializar Firebase para obtener token
+          await FirebaseService.initialize();
+
+          Alert.alert(
+            'Notificaciones Habilitadas',
+            'Ahora recibirás notificaciones importantes sobre tus viajes.'
+          );
+        } else {
+          // El usuario quiere deshabilitar notificaciones
+          Alert.alert(
+            'Deshabilitar Notificaciones',
+            '¿Estás seguro de que quieres deshabilitar las notificaciones? No recibirás recordatorios importantes sobre tus viajes.',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              {
+                text: 'Deshabilitar',
+                style: 'destructive',
+                onPress: async () => {
+                  await AsyncStorage.setItem('notifications_enabled', JSON.stringify(false));
+                  setNotificationsEnabled(false);
+                  // Opcionalmente, desregistrar el token del backend
+                  // await FirebaseService.unregisterToken();
+                }
+              }
+            ]
+          );
+        }
+      } catch (error) {
+        console.error('Error toggling notifications:', error);
+        Alert.alert('Error', 'No se pudo cambiar la configuración de notificaciones.');
+      }
+    };
+
+    // Abrir configuración del sistema
+    const openSystemSettings = () => {
+      if (Platform.OS === 'ios') {
+        Linking.openURL('app-settings:');
+      } else {
+        Linking.openSettings();
+      }
+    };
 
   const getCurrentUserProfile = async () => {
     try {
@@ -300,6 +396,18 @@ export default function ConfigurationScreen({ navigation }) {
                 <Text style={styles.infoLabel}>Email:</Text>
                 <Text style={styles.infoValue}>{user?.email}</Text>
               </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Cédula:</Text>
+                <Text style={styles.infoValue}>{user?.ci}</Text>
+              </View>
+              {user?.fechaNac && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Fecha de Nacimiento:</Text>
+                  <Text style={styles.infoValue}>
+                    {new Date(user.fechaNac).toLocaleDateString('es-UY')}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -407,34 +515,6 @@ export default function ConfigurationScreen({ navigation }) {
             </TouchableOpacity>
           )}
         </View>
-
-        {/* Información adicional */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Información de Cuenta</Text>
-          <View style={styles.infoDisplay}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Cédula:</Text>
-              <Text style={styles.infoValue}>{user?.ci}</Text>
-            </View>
-            {user?.fechaNac && (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Fecha de Nacimiento:</Text>
-                <Text style={styles.infoValue}>
-                  {new Date(user.fechaNac).toLocaleDateString('es-UY')}
-                </Text>
-              </View>
-            )}
-            {user?.tipoCliente && (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Tipo de Cliente:</Text>
-                <Text style={styles.infoValue}>{user.tipoCliente}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Componente de estado de notificaciones */}
-              <NotificationStatus />
       </ScrollView>
     </SafeAreaView>
   );
@@ -597,4 +677,59 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
+  // Estilos para notificaciones
+    notificationRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 8,
+    },
+    notificationInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    notificationTextContainer: {
+      marginLeft: 12,
+      flex: 1,
+    },
+    notificationTitle: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: '#333',
+    },
+    notificationSubtitle: {
+      fontSize: 14,
+      color: '#666',
+      marginTop: 2,
+    },
+    notificationText: {
+      fontSize: 16,
+      color: '#666',
+      marginLeft: 12,
+    },
+    permissionStatus: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 12,
+      padding: 12,
+      backgroundColor: '#f9f9f9',
+      borderRadius: 8,
+    },
+    permissionText: {
+      fontSize: 14,
+      marginLeft: 8,
+      flex: 1,
+    },
+    settingsButton: {
+      backgroundColor: '#EF4444',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+    },
+    settingsButtonText: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: '500',
+    },
 });

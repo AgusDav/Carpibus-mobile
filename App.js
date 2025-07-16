@@ -3,10 +3,17 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ← AGREGAR ESTE IMPORT
 import Icon from 'react-native-vector-icons/Ionicons';
+import FlashMessage from "react-native-flash-message";
 
 // Context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+
+// Firebase
+import SessionManager from './src/utils/SessionManager';
+import FirebaseService from './src/services/FirebaseService';
+import { NavigationService } from './src/services/NavigationService';
 
 // 🔥 IMPORTAR TEMA PARA LA NAVEGACIÓN
 import { theme } from './src/styles/theme';
@@ -30,6 +37,8 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabNavigator() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -56,9 +65,10 @@ function TabNavigator() {
           backgroundColor: theme.colors.surface,
           borderTopWidth: 1,
           borderTopColor: theme.colors.border,
-          paddingBottom: 8,
-          paddingTop: 8,
-          height: 65,
+          paddingBottom: Math.max(insets.bottom + 8, 16),
+          paddingTop: 12,
+          height: 65 + Math.max(insets.bottom, 0),
+
           ...theme.shadows.md,
         },
 
@@ -67,17 +77,18 @@ function TabNavigator() {
           fontSize: theme.typography.small.fontSize,
           fontWeight: '600',
           marginTop: 2,
+          marginBottom: 2,
         },
 
         // 🎨 ESTILOS DE LOS ELEMENTOS
         tabBarItemStyle: {
-          paddingVertical: 4,
+          paddingVertical: 6,
         },
 
         // 🎨 CONFIGURACIONES ADICIONALES
         headerShown: false,
-        tabBarHideOnKeyboard: true, // Ocultar en teclado
-        tabBarAllowFontScaling: false, // Evitar escalado de fuente
+        tabBarHideOnKeyboard: true,
+        tabBarAllowFontScaling: false,
       })}
     >
       <Tab.Screen
@@ -243,8 +254,53 @@ function MainStack() {
 }
 
 function AppNavigator() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, logout } = useAuth();
   const navigationRef = useRef();
+
+    useEffect(() => {
+      if (isAuthenticated && navigationRef.current) {
+        console.log('🔧 Configurando SessionManager globalmente...');
+
+        // Configurar navegación
+        SessionManager.setNavigation(navigationRef.current);
+        NavigationService.setNavigator(navigationRef.current);
+
+        // Configurar callback de logout personalizado
+        SessionManager.setLogoutCallback(logout);
+
+        // Iniciar verificación de sesión
+        SessionManager.startSessionCheck();
+
+        // 🔥 INICIALIZAR Firebase Service
+        console.log('🔥 Inicializando Firebase Service...');
+        FirebaseService.initialize();
+
+        // Cleanup al desmontar o cuando cambie el estado de autenticación
+        return () => {
+          SessionManager.stopSessionCheck();
+        };
+      } else if (!isAuthenticated) {
+        // Detener verificación si no está autenticado
+        SessionManager.stopSessionCheck();
+
+        // 🔥 LIMPIAR token FCM al hacer logout
+        console.log('🗑️ Limpiando token FCM por logout...');
+        FirebaseService.clearTokenFromBackend();
+      }
+    }, [isAuthenticated, logout]);
+
+    // 🔥 EFECTO ADICIONAL PARA RE-REGISTRAR TOKEN DESPUÉS DEL LOGIN
+    useEffect(() => {
+      if (isAuthenticated) {
+        // Dar tiempo para que se configure la autenticación
+        const timer = setTimeout(() => {
+          console.log('🔄 Re-registrando token FCM después del login...');
+          FirebaseService.refreshToken();
+        }, 1000);
+
+        return () => clearTimeout(timer);
+      }
+    }, [isAuthenticated]);
 
   if (loading) {
     return (
@@ -265,6 +321,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AppNavigator />
+      <FlashMessage position="top" />
     </AuthProvider>
   );
 }

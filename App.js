@@ -65,9 +65,9 @@ function TabNavigator() {
           backgroundColor: theme.colors.surface,
           borderTopWidth: 1,
           borderTopColor: theme.colors.border,
-          paddingBottom: Math.max(insets.bottom + 8, 16),
+          paddingBottom: Math.max(insets.bottom + 12, 20),
           paddingTop: 12,
-          height: 65 + Math.max(insets.bottom, 0),
+          height: 75 + Math.max(insets.bottom, 0),
 
           ...theme.shadows.md,
         },

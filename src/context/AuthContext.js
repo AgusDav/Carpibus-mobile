@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../api/auth';
 
+import FirebaseService from '../services/FirebaseService';
+
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
@@ -91,6 +93,11 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       console.log('Iniciando logout...');
+
+      // 🔥 LIMPIAR token FCM al hacer logout
+        console.log('🗑️ Limpiando token FCM por logout...');
+        FirebaseService.clearTokenFromBackend();
+        console.log('🗑️ Token FCM limpiado...');
 
       // Primero limpiar el estado local
       setUser(null);

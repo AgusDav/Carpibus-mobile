@@ -32,6 +32,7 @@ import HelpScreen from './src/screens/HelpScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import PayPalNativePayment from './src/components/PayPalNativePayment';
 import PayPalWebView from './src/components/PayPalWebView';
+import TicketDetailScreen from './src/screens/TicketDetailScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -167,6 +168,25 @@ function MainStack() {
         }}
       />
       <Stack.Screen
+          name="TicketDetail"
+          component={TicketDetailScreen}
+          options={{
+            headerShown: true,
+            title: 'Detalle del Pasaje',
+            // 🎨 HEADER CON COLORES DEL TEMA
+            headerStyle: {
+              backgroundColor: theme.colors.primary,
+              elevation: theme.shadows.md.elevation,
+              shadowOpacity: theme.shadows.md.shadowOpacity,
+            },
+            headerTintColor: theme.colors.surface,
+            headerTitleStyle: {
+              fontWeight: '600',
+              fontSize: theme.typography.h3.fontSize,
+            },
+          }}
+        />
+      <Stack.Screen
         name="Purchase"
         component={PurchaseScreen}
         options={{
@@ -282,10 +302,6 @@ function AppNavigator() {
       } else if (!isAuthenticated) {
         // Detener verificación si no está autenticado
         SessionManager.stopSessionCheck();
-
-        // 🔥 LIMPIAR token FCM al hacer logout
-        console.log('🗑️ Limpiando token FCM por logout...');
-        FirebaseService.clearTokenFromBackend();
       }
     }, [isAuthenticated, logout]);
 

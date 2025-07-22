@@ -126,7 +126,8 @@ class FirebaseService {
   async clearTokenFromBackend() {
     try {
       if (this.currentToken) {
-        await apiClient.delete('/api/cliente/fcm-token', true);
+        await apiClient.clearFCMToken();
+        //await apiClient.delete('/api/cliente/fcm-token', true);
         console.log('🗑️ Token FCM limpiado del backend');
       }
 

@@ -65,7 +65,7 @@ export default function LoginScreen({ navigation }) {
     } catch (error) {
       Alert.alert(
         'Error de autenticación',
-        error.message || 'Credenciales incorrectas'
+        'Credenciales incorrectas'
       );
     }
   };

@@ -7,10 +7,14 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import DatePicker from './DatePicker';
 import { globalStyles } from '../styles/globalStyles';
+
+const { height: screenHeight } = Dimensions.get('window');
 
 // Componente Dropdown puro para origen/destino
 const LocationDropdown = memo(({
@@ -22,20 +26,20 @@ const LocationDropdown = memo(({
   theme,
   icon = "location-outline"
 }) => {
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
-  const handleToggleDropdown = useCallback(() => {
-    setShowDropdown(prev => !prev);
+  const handleToggleModal = useCallback(() => {
+    setShowModal(prev => !prev);
   }, []);
 
   const handleSelectOption = useCallback((option) => {
     onSelect(option);
-    setShowDropdown(false);
+    setShowModal(false);
   }, [onSelect]);
 
   const handleClearSelection = useCallback(() => {
     onSelect('');
-    setShowDropdown(false);
+    setShowModal(false);
   }, [onSelect]);
 
   return (
@@ -54,7 +58,7 @@ const LocationDropdown = memo(({
             minHeight: 50,
           }
         ]}
-        onPress={handleToggleDropdown}
+        onPress={handleToggleModal}
         activeOpacity={0.7}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
@@ -76,95 +80,139 @@ const LocationDropdown = memo(({
         </View>
 
         <Icon
-          name={showDropdown ? "chevron-up" : "chevron-down"}
+          name="chevron-down"
           size={20}
           color={theme.colors.textSecondary}
         />
       </TouchableOpacity>
 
-      {showDropdown && Array.isArray(options) && options.length > 0 && (
-        <View style={{
-          backgroundColor: '#fff',
-          borderWidth: 1,
-          borderColor: '#e5e7eb',
-          borderRadius: 8,
-          marginTop: 4,
-          maxHeight: 250,
-          elevation: 3,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          zIndex: 1000,
-        }}>
-          <ScrollView
-            style={{ maxHeight: 250 }}
-            nestedScrollEnabled={true}
-            showsVerticalScrollIndicator={false}
+      <Modal
+        visible={showModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowModal(false)}
+      >
+        {/* Fondo semitransparente que se puede tocar para cerrar */}
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingHorizontal: 20,
+          }}
+          activeOpacity={1}
+          onPress={() => setShowModal(false)} // Cerrar al tocar afuera
+        >
+          {/* Contenedor del modal que NO se cierra al tocarlo */}
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#fff',
+              borderRadius: 12,
+              maxHeight: screenHeight * 0.6, // Máximo 60% de la pantalla
+              width: '100%',
+              maxWidth: 400, // Límite de ancho en tablets
+              elevation: 5,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 3.84,
+            }}
+            activeOpacity={1} // No cerrar al tocar el contenido
           >
-            {/* Opción para limpiar selección */}
-            {value && (
+            {/* Header del modal */}
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: '#e5e7eb',
+            }}>
+              <Text style={[globalStyles.textHeading3]}>
+                {label}
+              </Text>
               <TouchableOpacity
+                onPress={() => setShowModal(false)}
                 style={{
-                  padding: 12,
-                  borderBottomWidth: 1,
-                  borderBottomColor: '#f3f4f6',
-                  backgroundColor: '#f9fafb',
+                  padding: 4,
+                  borderRadius: 20,
+                  backgroundColor: '#f3f4f6',
                 }}
-                onPress={handleClearSelection}
-                activeOpacity={0.7}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Icon name="close-circle" size={16} color={theme.colors.textSecondary} />
-                  <Text style={[
-                    globalStyles.textBody,
-                    {
-                      marginLeft: 8,
-                      color: theme.colors.textSecondary,
-                      fontStyle: 'italic'
-                    }
-                  ]}>
-                    Limpiar selección
-                  </Text>
-                </View>
+                <Icon name="close" size={20} color={theme.colors.textSecondary} />
               </TouchableOpacity>
-            )}
+            </View>
 
-            {/* Opciones de localidades */}
-            {options.map((option, index) => (
-              <TouchableOpacity
-                key={`${option}-${index}`}
-                style={{
-                  padding: 12,
-                  borderBottomWidth: index < options.length - 1 ? 1 : 0,
-                  borderBottomColor: '#f3f4f6',
-                  backgroundColor: value === option ? '#f0f9ff' : 'transparent',
-                }}
-                onPress={() => handleSelectOption(option)}
-                activeOpacity={0.7}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Icon
-                    name="location"
-                    size={16}
-                    color={value === option ? theme.colors.primary : theme.colors.textSecondary}
-                  />
-                  <Text style={[
-                    globalStyles.textBody,
-                    {
-                      marginLeft: 8,
-                      color: value === option ? theme.colors.primary : theme.colors.text,
-                      fontWeight: value === option ? '600' : '400'
-                    }
-                  ]}>
-                    {option}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
+            {/* Lista scrolleable de opciones - AQUÍ ya no hay conflicto */}
+            <ScrollView
+              style={{ maxHeight: screenHeight * 0.4 }}
+              showsVerticalScrollIndicator={true}
+            >
+              {/* Opción para limpiar selección */}
+              {value && (
+                <TouchableOpacity
+                  style={{
+                    padding: 16,
+                    borderBottomWidth: 1,
+                    borderBottomColor: '#f3f4f6',
+                    backgroundColor: '#f9fafb',
+                  }}
+                  onPress={handleClearSelection}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="close-circle" size={20} color={theme.colors.textSecondary} />
+                    <Text style={[
+                      globalStyles.textBody,
+                      {
+                        marginLeft: 12,
+                        color: theme.colors.textSecondary,
+                        fontStyle: 'italic'
+                      }
+                    ]}>
+                      Limpiar selección
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* Opciones de localidades */}
+              {options.map((option, index) => (
+                <TouchableOpacity
+                  key={`${option}-${index}`}
+                  style={{
+                    padding: 16,
+                    borderBottomWidth: index < options.length - 1 ? 1 : 0,
+                    borderBottomColor: '#f3f4f6',
+                    backgroundColor: value === option ? '#f0f9ff' : 'transparent',
+                  }}
+                  onPress={() => handleSelectOption(option)}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon
+                      name="location"
+                      size={20}
+                      color={value === option ? theme.colors.primary : theme.colors.textSecondary}
+                    />
+                    <Text style={[
+                      globalStyles.textBody,
+                      {
+                        marginLeft: 12,
+                        color: value === option ? theme.colors.primary : theme.colors.text,
+                        fontWeight: value === option ? '600' : '400'
+                      }
+                    ]}>
+                      {option}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 });
